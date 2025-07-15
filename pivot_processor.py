@@ -14,7 +14,7 @@ class PivotProcessor:
         # 提取所有晶圆/规格/品名用于初始化
         dfs_with_fields = []
         for file in forecast_files:
-            df = load_file_with_github_fallback("forecast", file, sheet_name="预测")
+            df = load_file_with_github_fallback("forecast", file)
             df = df.rename(columns=lambda x: x.strip())
             if {"晶圆", "规格", "生产料号"}.issubset(df.columns):
                 df["晶圆"] = df["晶圆"].astype(str).str.strip()
