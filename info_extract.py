@@ -5,6 +5,12 @@ from datetime import datetime
 from openpyxl import load_workbook
 from openpyxl.styles import PatternFill
 
+def extract_year_month_from_filename(filename: str) -> str:
+    match = re.search(r"(20\d{2})(\d{2})\d{2}", filename)
+    if match:
+        year, month = match.group(1), match.group(2)
+        return f"{year}-{month}"
+    return None
 
 def extract_all_year_months(df_forecast, df_order, df_sales, forecast_year = None):
     # 1. 从 forecast header 提取 x月预测 列中的月份
