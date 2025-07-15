@@ -76,8 +76,6 @@ def download_from_github(filename):
 
 def load_file_with_github_fallback(file_key, uploaded_file, sheet_name=0, header=0):
     fallback_urls = {
-        "template": "https://raw.githubusercontent.com/TTTriste06/forecast-analysis/main/预测分析.xlsx",
-        "forecast": "https://raw.githubusercontent.com/TTTriste06/forecast-analysis/main/预测.xlsx",
         "order": "https://raw.githubusercontent.com/TTTriste06/forecast-analysis/main/未交订单.xlsx",
         "sales": "https://raw.githubusercontent.com/TTTriste06/forecast-analysis/main/出货明细.xlsx",
         "mapping": "https://raw.githubusercontent.com/TTTriste06/operation_planning-/main/新旧料号.xlsx"
