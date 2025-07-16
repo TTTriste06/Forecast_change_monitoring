@@ -41,7 +41,6 @@ class PivotProcessor:
         st.write(forecast_files)
     
         for file in forecast_files:
-            st.write(file)
             filename = os.path.basename(file.name)
             match = re.search(r'(\d{8})', filename)
             if not match:
@@ -50,11 +49,16 @@ class PivotProcessor:
             gen_ym = gen_date.strftime("%Y-%m")
             gen_month = gen_date.month
             gen_year = gen_date.year
-    
+        
             xls = pd.ExcelFile(file)
             df = xls.parse(xls.sheet_names[-1])
             df = df.rename(columns=forecast_rename)
-    
+        
+            # ✅ 显示文件名和数据预览
+            st.write(f"📂 已读取预测文件：**{filename}**（预测生成时间：{gen_ym}）的最后一个 Sheet：")
+            st.dataframe(df)
+
+
             df, _ = apply_mapping_and_merge(df, mapping_new, {"品名": "品名"})
             df, _ = apply_extended_substitute_mapping(df, mapping_sub, {"品名": "品名"})
     
