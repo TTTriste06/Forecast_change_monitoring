@@ -19,7 +19,8 @@ class PivotProcessor:
             extract_all_year_months,
             fill_order_data,
             fill_sales_data,
-            highlight_by_detecting_column_headers
+            highlight_by_detecting_column_headers,
+            detect_forecast_header
         )
     
         mapping_semi, mapping_new, mapping_sub = split_mapping_data(mapping_df)
@@ -49,8 +50,7 @@ class PivotProcessor:
             gen_month = gen_date.month
             gen_year = gen_date.year
     
-            xls = pd.ExcelFile(file)
-            df = xls.parse(xls.sheet_names[-1], header=1)  # ✅ 使用第2行作为header
+            header_row, df = detect_forecast_header(file)
     
             # ✅ 强制将第二列设为“品名”
             df["品名"] = df.iloc[:, 1]
