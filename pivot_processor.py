@@ -51,7 +51,7 @@ class PivotProcessor:
             gen_year = gen_date.year
         
             xls = pd.ExcelFile(file)
-            df = xls.parse(xls.sheet_names[-1])
+            df = xls.parse(xls.sheet_names[-1], header=1)  # 👈 指定表头在第2行
             df = df.rename(columns=forecast_rename)
         
             # ✅ 显示文件名和数据预览
