@@ -67,7 +67,8 @@ class PivotProcessor:
             df, _ = apply_extended_substitute_mapping(df, mapping_sub, {"品名": "品名"})
     
             # 提取唯一产品信息
-            part_df = df[["晶圆", "规格", "品名"]].dropna().drop_duplicates().rename(columns={"晶圆": "晶圆品名"})
+            part_df = df[["规格", "品名"]].dropna().drop_duplicates()
+            part_df["晶圆品名"] = ""  # 🔁 补空列保持结构一致
             main_df = pd.concat([main_df, part_df]).drop_duplicates().reset_index(drop=True)
     
             # 解析“6月预测”列为完整年月
