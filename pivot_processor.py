@@ -115,7 +115,7 @@ class PivotProcessor:
         main_df = fill_order_data(main_df, order_df.rename(columns=order_rename), all_months)
         main_df = fill_sales_data(main_df, sales_df.rename(columns=sales_rename), all_months)
 
-        main_df = merge_by_product_name_and_fill_specs(main_df, mapping_df, order_df, sales_df)
+        # main_df = merge_by_product_name_and_fill_specs(main_df, mapping_df, order_df, sales_df)
     
         output = BytesIO()
         with pd.ExcelWriter(output, engine="openpyxl") as writer:
