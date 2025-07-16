@@ -9,7 +9,6 @@ from openpyxl.utils import get_column_letter
 
 class PivotProcessor:
     def process(self, forecast_files, order_df, sales_df, mapping_df):
-        import streamlit as st
         from mapping_utils import (
             apply_mapping_and_merge,
             apply_extended_substitute_mapping,
@@ -24,12 +23,9 @@ class PivotProcessor:
         )
     
         mapping_semi, mapping_new, mapping_sub = split_mapping_data(mapping_df)
-    
-        # 字段标准化映射（仅适用于预测的规格列 & 出货的晶圆列）
-        order_rename = {}  # 不重命名，字段已标准化
+        order_rename = {}  # 不重命名
         sales_rename = {"晶圆": "晶圆品名"}
     
-        # 提取统一格式的基础信息
         def extract_unique_rows(df, rename_map):
             df = df.rename(columns=rename_map).copy()
             return df[["晶圆品名", "规格", "品名"]].dropna().drop_duplicates()
@@ -40,11 +36,17 @@ class PivotProcessor:
     
         forecast_column_names = []
     
+        # 用第一个文件作为 forecast_df 用于识别月份
+        if not forecast_files:
+            raise ValueError("❌ 未上传任何预测文件")
+        _, first_forecast_df = detect_forecast_header(forecast_files[0])
+        all_months = extract_all_year_months(first_forecast_df, order_df, sales_df)
+    
         for file in forecast_files:
             filename = os.path.basename(file.name)
             match = re.search(r'(\d{8})', filename)
             if not match:
-                raise ValueError(f"❌ 无法从文件名中提取日期（应包含 8 位数字）：{filename}")
+                raise ValueError(f"❌ 文件名中缺少日期（8位数字）：{filename}")
             gen_date = datetime.strptime(match.group(1), "%Y%m%d")
             gen_ym = gen_date.strftime("%Y-%m")
             gen_month = gen_date.month
@@ -52,27 +54,25 @@ class PivotProcessor:
     
             header_row, df = detect_forecast_header(file)
     
-            # ✅ 强制将第二列设为“品名”
-            df["品名"] = df.iloc[:, 1]
-    
-            # ✅ 将“产品型号”重命名为“规格”
+            # ✅ 品名 = 第二列；规格 = “产品型号”；都转成字符串
+            df["品名"] = df.iloc[:, 1].astype(str).str.strip()
             df = df.rename(columns={"产品型号": "规格"})
+            df["规格"] = df["规格"].astype(str).str.strip()
     
-            # 展示读取的表格供用户预览
-            st.write(f"📂 已读取预测文件：**{filename}**（生成时间：{gen_ym}）的最后一个 Sheet：")
-            st.dataframe(df.head(10))  # 只显示前10行预览
+            # ✅ 显示预览
+            st.write(f"📂 已读取预测文件：**{filename}**（生成日期：{gen_ym}） header 行：第 {header_row + 1} 行")
+            st.dataframe(df.head(10))
     
-            # 应用品名映射
             df, _ = apply_mapping_and_merge(df, mapping_new, {"品名": "品名"})
             df, _ = apply_extended_substitute_mapping(df, mapping_sub, {"品名": "品名"})
     
-            # 提取唯一产品信息
+            # 没有晶圆列 → 手动补充空值列
             part_df = df[["规格", "品名"]].dropna().drop_duplicates()
-            part_df["晶圆品名"] = ""  # 🔁 补空列保持结构一致
-            main_df = pd.concat([main_df, part_df]).drop_duplicates().reset_index(drop=True)
+            part_df["晶圆品名"] = ""
+            main_df = pd.concat([main_df, part_df[["晶圆品名", "规格", "品名"]]]).drop_duplicates().reset_index(drop=True)
     
-            # 解析“6月预测”列为完整年月
-            month_only_pattern = re.compile(r"^(\d{1,2})月预测")
+            # 处理 x月预测 → yyyy-mm
+            month_only_pattern = re.compile(r"^(\d{1,2})月预测$")
             month_map = {}
             for col in df.columns:
                 if not isinstance(col, str):
@@ -93,19 +93,16 @@ class PivotProcessor:
     
                 for _, row in df.iterrows():
                     product = str(row.get("品名", "")).strip()
-                    wafer = str(row.get("晶圆", "")).strip()
                     spec = str(row.get("规格", "")).strip()
                     val = row.get(original_col, 0)
                     val = 0 if pd.isna(val) else val
                     mask = (
                         (main_df["品名"] == product)
-                        & (main_df["晶圆品名"] == wafer)
                         & (main_df["规格"] == spec)
                     )
                     main_df.loc[mask, new_col_name] = val
     
-        # 添加订单/出货月份列
-        all_months = extract_all_year_months(None, order_df, sales_df)
+        # 初始化订单/出货列
         for ym in all_months:
             main_df[f"{ym}-订单"] = 0
             main_df[f"{ym}-出货"] = 0
