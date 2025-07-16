@@ -21,9 +21,9 @@ class PivotProcessor:
             highlight_by_detecting_column_headers,
             detect_forecast_header
         )
-    
+        
         mapping_semi, mapping_new, mapping_sub = split_mapping_data(mapping_df)
-        order_rename = {}  # 不重命名
+        order_rename = {}
         sales_rename = {"晶圆": "晶圆品名"}
     
         def extract_unique_rows(df, rename_map):
@@ -36,7 +36,7 @@ class PivotProcessor:
     
         forecast_column_names = []
     
-        # 用第一个文件作为 forecast_df 用于识别月份
+        # ✅ 用第一个预测文件确定 forecast_months
         if not forecast_files:
             raise ValueError("❌ 未上传任何预测文件")
         _, first_forecast_df = detect_forecast_header(forecast_files[0])
@@ -54,24 +54,21 @@ class PivotProcessor:
     
             header_row, df = detect_forecast_header(file)
     
-            # ✅ 品名 = 第二列；规格 = “产品型号”；都转成字符串
+            # ✅ 设置品名和规格，并强制转字符串
             df["品名"] = df.iloc[:, 1].astype(str).str.strip()
             df = df.rename(columns={"产品型号": "规格"})
             df["规格"] = df["规格"].astype(str).str.strip()
     
-            # ✅ 显示预览
             st.write(f"📂 已读取预测文件：**{filename}**（生成日期：{gen_ym}） header 行：第 {header_row + 1} 行")
             st.dataframe(df.head(10))
     
             df, _ = apply_mapping_and_merge(df, mapping_new, {"品名": "品名"})
             df, _ = apply_extended_substitute_mapping(df, mapping_sub, {"品名": "品名"})
     
-            # 没有晶圆列 → 手动补充空值列
             part_df = df[["规格", "品名"]].dropna().drop_duplicates()
             part_df["晶圆品名"] = ""
             main_df = pd.concat([main_df, part_df[["晶圆品名", "规格", "品名"]]]).drop_duplicates().reset_index(drop=True)
     
-            # 处理 x月预测 → yyyy-mm
             month_only_pattern = re.compile(r"^(\d{1,2})月预测$")
             month_map = {}
             for col in df.columns:
@@ -89,28 +86,26 @@ class PivotProcessor:
                 if new_col_name not in forecast_column_names:
                     forecast_column_names.append(new_col_name)
                 if new_col_name not in main_df.columns:
-                    main_df[new_col_name] = 0
+                    main_df[new_col_name] = 0.0  # ✅ 初始化为 float 避免 dtype 警告
     
                 for _, row in df.iterrows():
                     product = str(row.get("品名", "")).strip()
                     spec = str(row.get("规格", "")).strip()
                     val = row.get(original_col, 0)
-                    val = 0 if pd.isna(val) else val
+                    val = float(val) if pd.notna(val) else 0.0  # ✅ 显式转 float
                     mask = (
                         (main_df["品名"] == product)
                         & (main_df["规格"] == spec)
                     )
                     main_df.loc[mask, new_col_name] = val
     
-        # 初始化订单/出货列
         for ym in all_months:
-            main_df[f"{ym}-订单"] = 0
-            main_df[f"{ym}-出货"] = 0
+            main_df[f"{ym}-订单"] = 0.0
+            main_df[f"{ym}-出货"] = 0.0
     
         main_df = fill_order_data(main_df, order_df.rename(columns=order_rename), all_months)
         main_df = fill_sales_data(main_df, sales_df.rename(columns=sales_rename), all_months)
     
-        # 输出 Excel
         output = BytesIO()
         with pd.ExcelWriter(output, engine="openpyxl") as writer:
             main_df.to_excel(writer, index=False, sheet_name="预测分析", startrow=1)
