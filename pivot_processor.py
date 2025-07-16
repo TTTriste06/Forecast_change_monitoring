@@ -19,21 +19,25 @@ class PivotProcessor:
             fill_sales_data,
             highlight_by_detecting_column_headers
         )
-
+    
         mapping_semi, mapping_new, mapping_sub = split_mapping_data(mapping_df)
-
-        # 提取基础信息
-        def extract_unique_rows(df):
-            return df[["晶圆", "规格", "品名"]].dropna().drop_duplicates().rename(columns={"晶圆": "晶圆品名"})
-
-        order_part = extract_unique_rows(order_df)
-        sales_part = extract_unique_rows(sales_df)
+    
+        # 映射字段名
+        forecast_rename = {"生产料号": "品名", "产品型号": "规格"}
+        order_rename = {"品名": "品名", "晶圆": "晶圆品名", "规格": "规格"}
+        sales_rename = {"品名": "品名", "晶圆": "晶圆品名", "规格": "规格"}
+    
+        def extract_unique_rows(df, rename_map):
+            df = df.rename(columns=rename_map).copy()
+            return df[["晶圆品名", "规格", "品名"]].dropna().drop_duplicates()
+    
+        order_part = extract_unique_rows(order_df, order_rename)
+        sales_part = extract_unique_rows(sales_df, sales_rename)
         main_df = pd.concat([order_part, sales_part]).drop_duplicates().reset_index(drop=True)
-
+    
         forecast_column_names = []
-
+    
         for file in forecast_files:
-            # 1. 提取预测文件生成年月（默认 8 位数字）
             filename = os.path.basename(file.name)
             match = re.search(r'(\d{8})', filename)
             if not match:
@@ -42,81 +46,72 @@ class PivotProcessor:
             gen_ym = gen_date.strftime("%Y-%m")
             gen_month = gen_date.month
             gen_year = gen_date.year
-
-            # 2. 读取最后一个 sheet
+    
             xls = pd.ExcelFile(file)
             df = xls.parse(xls.sheet_names[-1])
-            df = df.rename(columns={"生产料号": "品名"})  # 假设预测用“生产料号”
-
-            # 3. 应用料号映射
+            df = df.rename(columns=forecast_rename)
+    
             df, _ = apply_mapping_and_merge(df, mapping_new, {"品名": "品名"})
             df, _ = apply_extended_substitute_mapping(df, mapping_sub, {"品名": "品名"})
-
-            # 4. 合并产品信息
+    
             part_df = df[["晶圆", "规格", "品名"]].dropna().drop_duplicates().rename(columns={"晶圆": "晶圆品名"})
             main_df = pd.concat([main_df, part_df]).drop_duplicates().reset_index(drop=True)
-
-            # 5. 处理“6月预测”列为完整“YYYY-MM预测”
+    
             month_only_pattern = re.compile(r"^(\d{1,2})月预测")
             month_map = {}
-
+    
             for col in df.columns:
                 if not isinstance(col, str):
                     continue
                 match = month_only_pattern.match(col)
                 if match:
                     month_num = int(match.group(1))
-                    if month_num < gen_month:
-                        year = gen_year + 1
-                    else:
-                        year = gen_year
+                    year = gen_year + 1 if month_num < gen_month else gen_year
                     ym = f"{year}-{month_num:02d}"
                     month_map[ym] = col
-
+    
             for ym, original_col in month_map.items():
                 new_col_name = f"{gen_ym}的预测（{ym}）"
-                forecast_column_names.append(new_col_name)
+                if new_col_name not in forecast_column_names:
+                    forecast_column_names.append(new_col_name)
                 if new_col_name not in main_df.columns:
                     main_df[new_col_name] = 0
-
+    
                 for idx, row in df.iterrows():
                     product = str(row.get("品名", "")).strip()
-                    wafer = str(row.get("晶圆品名", "")).strip()
+                    wafer = str(row.get("晶圆", "")).strip()
                     spec = str(row.get("规格", "")).strip()
                     val = row.get(original_col, 0)
+                    val = 0 if pd.isna(val) else val
                     mask = (
                         (main_df["品名"] == product)
                         & (main_df["晶圆品名"] == wafer)
                         & (main_df["规格"] == spec)
                     )
                     main_df.loc[mask, new_col_name] = val
-
-        # 6. 提取订单/出货的所有月份，初始化列
+    
         all_months = extract_all_year_months(None, order_df, sales_df)
         for ym in all_months:
             main_df[f"{ym}-订单"] = 0
             main_df[f"{ym}-出货"] = 0
-
-        main_df = fill_order_data(main_df, order_df, all_months)
-        main_df = fill_sales_data(main_df, sales_df, all_months)
-
-        # 7. 输出 Excel 文件
+    
+        main_df = fill_order_data(main_df, order_df.rename(columns=order_rename), all_months)
+        main_df = fill_sales_data(main_df, sales_df.rename(columns=sales_rename), all_months)
+    
         output = BytesIO()
         with pd.ExcelWriter(output, engine="openpyxl") as writer:
             main_df.to_excel(writer, index=False, sheet_name="预测分析", startrow=1)
             ws = writer.sheets["预测分析"]
-
+    
             highlight_by_detecting_column_headers(ws)
-
-            # 表头格式
+    
             for i, label in enumerate(["晶圆品名", "规格", "品名"], start=1):
                 ws.merge_cells(start_row=1, start_column=i, end_row=2, end_column=i)
                 cell = ws.cell(row=1, column=i)
                 cell.value = label
                 cell.alignment = Alignment(horizontal="center", vertical="center")
                 cell.font = Font(bold=True)
-
-            # 自动合并动态预测/订单/出货列头
+    
             col = 4
             dynamic_cols = [c for c in main_df.columns if c not in ["晶圆品名", "规格", "品名"]]
             group_keys = {}
@@ -129,11 +124,11 @@ class PivotProcessor:
                 else:
                     group = "其它"
                 group_keys.setdefault(group, []).append(col_name)
-
+    
             fill_colors = [
                 "FFF2CC", "D9EAD3", "D0E0E3", "F4CCCC", "EAD1DC", "CFE2F3", "FFE599"
             ]
-
+    
             col_idx = 4
             for i, (group, col_names) in enumerate(group_keys.items()):
                 ws.merge_cells(start_row=1, start_column=col_idx,
@@ -142,29 +137,26 @@ class PivotProcessor:
                 top_cell.value = group
                 top_cell.alignment = Alignment(horizontal="center", vertical="center")
                 top_cell.font = Font(bold=True)
-
+    
                 fill = PatternFill(start_color=fill_colors[i % len(fill_colors)],
                                    end_color=fill_colors[i % len(fill_colors)],
                                    fill_type="solid")
-
+    
                 for j, cname in enumerate(col_names):
                     ws.cell(row=2, column=col_idx + j).value = cname.split("的预测")[-1] if "预测" in cname else cname[-2:]
                     for r in [1, 2]:
-                        cell = ws.cell(row=r, column=col_idx + j)
-                        cell.fill = fill
+                        ws.cell(row=r, column=col_idx + j).fill = fill
                 col_idx += len(col_names)
-
-            # 列宽自动调整
+    
             for col_idx, column_cells in enumerate(ws.columns, 1):
                 max_length = 0
                 for cell in column_cells:
                     if cell.value:
                         max_length = max(max_length, len(str(cell.value)))
                 ws.column_dimensions[get_column_letter(col_idx)].width = max_length + 8
-
-            # 附加原始数据
+    
             order_df.to_excel(writer, index=False, sheet_name="原始-订单")
             sales_df.to_excel(writer, index=False, sheet_name="原始-出货")
-
+    
         output.seek(0)
         return main_df, output
