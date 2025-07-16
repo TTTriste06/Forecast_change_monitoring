@@ -24,6 +24,14 @@ class PivotProcessor:
         )
         
         mapping_semi, mapping_new, mapping_sub = split_mapping_data(mapping_df)
+
+        # ✅ 替换订单和出货品名字段（通常字段是“品名”）
+        order_df, _ = apply_mapping_and_merge(order_df, mapping_new, {"品名": "品名"})
+        order_df, _ = apply_extended_substitute_mapping(order_df, mapping_sub, {"品名": "品名"})
+        
+        sales_df, _ = apply_mapping_and_merge(sales_df, mapping_new, {"品名": "品名"})
+        sales_df, _ = apply_extended_substitute_mapping(sales_df, mapping_sub, {"品名": "品名"})
+
         order_rename = {}
         sales_rename = {"晶圆": "晶圆品名"}
     
