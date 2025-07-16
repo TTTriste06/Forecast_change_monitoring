@@ -4,10 +4,13 @@ import pandas as pd
 import streamlit as st
 from io import BytesIO
 from datetime import datetime
+from openpyxl.styles import Font, Alignment, PatternFill
+from openpyxl.utils import get_column_letter
+
+
 
 class PivotProcessor:
     def process(self, forecast_files, order_df, sales_df, mapping_df):
-        import streamlit as st
         from mapping_utils import (
             apply_mapping_and_merge,
             apply_extended_substitute_mapping,
