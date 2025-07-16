@@ -17,7 +17,8 @@ class PivotProcessor:
             extract_all_year_months,
             fill_order_data,
             fill_sales_data,
-            highlight_by_detecting_column_headers
+            highlight_by_detecting_column_headers,
+            detect_forecast_header
         )
     
         mapping_semi, mapping_new, mapping_sub = split_mapping_data(mapping_df)
