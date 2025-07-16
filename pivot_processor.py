@@ -24,7 +24,7 @@ class PivotProcessor:
     
         # 映射字段名
         forecast_rename = {"生产料号": "品名", "产品型号": "规格"}
-        order_rename = {"品名": "品名", "晶圆": "晶圆品名", "规格": "规格"}
+        order_rename = {}
         sales_rename = {"品名": "品名", "晶圆": "晶圆品名", "规格": "规格"}
     
         def extract_unique_rows(df, rename_map):
