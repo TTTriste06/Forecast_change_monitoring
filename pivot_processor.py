@@ -36,8 +36,11 @@ class PivotProcessor:
         main_df = pd.concat([order_part, sales_part]).drop_duplicates().reset_index(drop=True)
     
         forecast_column_names = []
+
+        st.write(forecast_files)
     
         for file in forecast_files:
+            st.write(file)
             filename = os.path.basename(file.name)
             match = re.search(r'(\d{8})', filename)
             if not match:
