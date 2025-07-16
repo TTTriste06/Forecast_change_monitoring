@@ -153,7 +153,7 @@ class PivotProcessor:
                                    fill_type="solid")
     
                 for j, cname in enumerate(col_names):
-                    ws.cell(row=2, column=col_idx + j).value = cname.split("的预测")[-1] if "预测" in cname else cname[-2:]
+                    ws.cell(row=2, column=col_idx + j).value = cname  # ✅ 显示完整 header
                     for r in [1, 2]:
                         ws.cell(row=r, column=col_idx + j).fill = fill
                 col_idx += len(col_names)
