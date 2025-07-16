@@ -5,6 +5,43 @@ from datetime import datetime
 from openpyxl import load_workbook
 from openpyxl.styles import PatternFill
 
+def merge_by_product_name_and_fill_specs(main_df, mapping_df, order_df, sales_df):
+    # 1. 聚合所有预测/订单/出货列
+    id_cols = ["品名"]
+    value_cols = [col for col in main_df.columns if col not in ["晶圆品名", "规格", "品名"]]
+
+    agg_df = (
+        main_df.groupby("品名")[value_cols]
+        .sum(min_count=1)
+        .reset_index()
+    )
+
+    # 2. 加上“新晶圆”和“新规格”列
+    agg_df["新晶圆"] = ""
+    agg_df["新规格"] = ""
+
+    # 映射中提取新晶圆/新规格（优先用 mapping）
+    mapping_lookup = mapping_df.rename(columns={"新品名": "品名"}).set_index("品名")
+
+    for idx, row in agg_df.iterrows():
+        pname = row["品名"]
+
+        if pname in mapping_lookup.index:
+            agg_df.at[idx, "新晶圆"] = mapping_lookup.at[pname, "新晶圆品名"] if "新晶圆品名" in mapping_lookup.columns else ""
+            agg_df.at[idx, "新规格"] = mapping_lookup.at[pname, "新规格"] if "新规格" in mapping_lookup.columns else ""
+        else:
+            # fallback：从订单或出货中找
+            fallback = pd.concat([order_df, sales_df], ignore_index=True)
+            fallback["品名"] = fallback["品名"].astype(str).str.strip()
+            row_fallback = fallback[fallback["品名"] == pname]
+
+            if not row_fallback.empty:
+                agg_df.at[idx, "新晶圆"] = row_fallback["晶圆品名"].dropna().astype(str).values[0]
+                agg_df.at[idx, "新规格"] = row_fallback["规格"].dropna().astype(str).values[0]
+
+    return agg_df
+
+
 def detect_forecast_header(file):
     # 先尝试 header=1（Excel 第 2 行）
     df1 = pd.read_excel(file, sheet_name=None, header=1)
