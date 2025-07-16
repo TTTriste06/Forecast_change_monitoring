@@ -1,6 +1,7 @@
 import pandas as pd
 import re
 
+
 def extract_forecast_month_from_filename(filename: str, current_year: int) -> str:
     match = re.search(r"(\d{1,2})月", filename)
     if match:
