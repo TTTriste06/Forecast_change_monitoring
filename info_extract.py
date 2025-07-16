@@ -5,6 +5,30 @@ from datetime import datetime
 from openpyxl import load_workbook
 from openpyxl.styles import PatternFill
 
+def detect_forecast_header(file):
+    # 先尝试 header=1（Excel 第 2 行）
+    df1 = pd.read_excel(file, sheet_name=None, header=1)
+    last_sheet = list(df1.keys())[-1]
+    df = df1[last_sheet]
+    if any("产品型号" in str(col) for col in df.columns):
+        return 1, df
+
+    # 再尝试 header=0（Excel 第 1 行）
+    df0 = pd.read_excel(file, sheet_name=None, header=0)
+    last_sheet = list(df0.keys())[-1]
+    df = df0[last_sheet]
+    if any("产品型号" in str(col) for col in df.columns):
+        return 0, df
+
+    # 再看有没有 “x月预测” 列
+    forecast_pattern = re.compile(r"^\d{1,2}月预测$")
+    if any(forecast_pattern.match(str(col)) for col in df.columns):
+        return 0, df
+
+    # 都没有匹配到则报错
+    raise ValueError("❌ 无法识别预测文件的 header 行，请确保文件包含 '产品型号' 或 'x月预测' 列名")
+
+
 
 def extract_all_year_months(df_forecast, df_order, df_sales, forecast_year = None):
     # 1. 从 forecast header 提取 x月预测 列中的月份
