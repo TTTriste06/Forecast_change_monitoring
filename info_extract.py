@@ -6,38 +6,49 @@ from openpyxl import load_workbook
 from openpyxl.styles import PatternFill
 
 def merge_by_product_name_and_fill_specs(main_df, mapping_df, order_df, sales_df):
-    # 1. 聚合所有预测/订单/出货列
+    # 1. 只保留品名 + 所有数值列
     id_cols = ["品名"]
     value_cols = [col for col in main_df.columns if col not in ["晶圆品名", "规格", "品名"]]
 
+    # 2. 合并相同品名（预测、订单、出货等全部求和）
     agg_df = (
         main_df.groupby("品名")[value_cols]
         .sum(min_count=1)
         .reset_index()
     )
 
-    # 2. 加上“新晶圆”和“新规格”列
+    # 3. 添加新晶圆、新规格列，默认值为空
     agg_df["新晶圆"] = ""
     agg_df["新规格"] = ""
 
-    # 映射中提取新晶圆/新规格（优先用 mapping）
+    # 映射表中查找：按新品名合并
     mapping_lookup = mapping_df.rename(columns={"新品名": "品名"}).set_index("品名")
+
+    # 合并订单和出货表做 fallback 查找
+    fallback_df = pd.concat([order_df, sales_df], ignore_index=True)
+    fallback_df["品名"] = fallback_df["品名"].astype(str).str.strip()
 
     for idx, row in agg_df.iterrows():
         pname = row["品名"]
 
+        # ✅ 优先从新旧料号中找
         if pname in mapping_lookup.index:
-            agg_df.at[idx, "新晶圆"] = mapping_lookup.at[pname, "新晶圆品名"] if "新晶圆品名" in mapping_lookup.columns else ""
-            agg_df.at[idx, "新规格"] = mapping_lookup.at[pname, "新规格"] if "新规格" in mapping_lookup.columns else ""
+            if "新晶圆品名" in mapping_lookup.columns:
+                agg_df.at[idx, "新晶圆"] = mapping_lookup.at[pname, "新晶圆品名"]
+            if "新规格" in mapping_lookup.columns:
+                agg_df.at[idx, "新规格"] = mapping_lookup.at[pname, "新规格"]
         else:
-            # fallback：从订单或出货中找
-            fallback = pd.concat([order_df, sales_df], ignore_index=True)
-            fallback["品名"] = fallback["品名"].astype(str).str.strip()
-            row_fallback = fallback[fallback["品名"] == pname]
+            # ❗fallback：订单或出货中找
+            match_rows = fallback_df[fallback_df["品名"] == pname]
 
-            if not row_fallback.empty:
-                agg_df.at[idx, "新晶圆"] = row_fallback["晶圆品名"].dropna().astype(str).values[0]
-                agg_df.at[idx, "新规格"] = row_fallback["规格"].dropna().astype(str).values[0]
+            if not match_rows.empty:
+                晶圆候选 = match_rows["晶圆品名"].dropna().astype(str)
+                规格候选 = match_rows["规格"].dropna().astype(str)
+
+                if not 晶圆候选.empty:
+                    agg_df.at[idx, "新晶圆"] = 晶圆候选.iloc[0]
+                if not 规格候选.empty:
+                    agg_df.at[idx, "新规格"] = 规格候选.iloc[0]
 
     return agg_df
 
