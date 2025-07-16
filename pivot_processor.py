@@ -91,7 +91,7 @@ class PivotProcessor:
                     month_map[ym] = col
     
             for ym, original_col in month_map.items():
-                new_col_name = f"{gen_ym}的预测（{ym}）"
+                new_col_name = f"{gen_ym}的预测"  # ✅
                 if new_col_name not in forecast_column_names:
                     forecast_column_names.append(new_col_name)
                 if new_col_name not in main_df.columns:
