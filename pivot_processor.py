@@ -9,6 +9,7 @@ from openpyxl.utils import get_column_letter
 
 class PivotProcessor:
     def process(self, forecast_files, order_df, sales_df, mapping_df):
+        import streamlit as st
         from mapping_utils import (
             apply_mapping_and_merge,
             apply_extended_substitute_mapping,
@@ -23,11 +24,11 @@ class PivotProcessor:
     
         mapping_semi, mapping_new, mapping_sub = split_mapping_data(mapping_df)
     
-        # 映射字段名
-        forecast_rename = {"生产料号": "品名", "产品型号": "规格"}
-        order_rename = {}
-        sales_rename = {"品名": "品名", "晶圆": "晶圆品名", "规格": "规格"}
+        # 字段标准化映射（仅适用于预测的规格列 & 出货的晶圆列）
+        order_rename = {}  # 不重命名，字段已标准化
+        sales_rename = {"晶圆": "晶圆品名"}
     
+        # 提取统一格式的基础信息
         def extract_unique_rows(df, rename_map):
             df = df.rename(columns=rename_map).copy()
             return df[["晶圆品名", "规格", "品名"]].dropna().drop_duplicates()
@@ -37,8 +38,6 @@ class PivotProcessor:
         main_df = pd.concat([order_part, sales_part]).drop_duplicates().reset_index(drop=True)
     
         forecast_column_names = []
-
-        st.write(forecast_files)
     
         for file in forecast_files:
             filename = os.path.basename(file.name)
@@ -49,25 +48,31 @@ class PivotProcessor:
             gen_ym = gen_date.strftime("%Y-%m")
             gen_month = gen_date.month
             gen_year = gen_date.year
-        
+    
             xls = pd.ExcelFile(file)
-            df = xls.parse(xls.sheet_names[-1], header=1)  # 👈 指定表头在第2行
-            df = df.rename(columns=forecast_rename)
-        
-            # ✅ 显示文件名和数据预览
-            st.write(f"📂 已读取预测文件：**{filename}**（预测生成时间：{gen_ym}）的最后一个 Sheet：")
-            st.dataframe(df)
-
-
+            df = xls.parse(xls.sheet_names[-1], header=1)  # ✅ 使用第2行作为header
+    
+            # ✅ 强制将第二列设为“品名”
+            df["品名"] = df.iloc[:, 1]
+    
+            # ✅ 将“产品型号”重命名为“规格”
+            df = df.rename(columns={"产品型号": "规格"})
+    
+            # 展示读取的表格供用户预览
+            st.write(f"📂 已读取预测文件：**{filename}**（生成时间：{gen_ym}）的最后一个 Sheet：")
+            st.dataframe(df.head(10))  # 只显示前10行预览
+    
+            # 应用品名映射
             df, _ = apply_mapping_and_merge(df, mapping_new, {"品名": "品名"})
             df, _ = apply_extended_substitute_mapping(df, mapping_sub, {"品名": "品名"})
     
+            # 提取唯一产品信息
             part_df = df[["晶圆", "规格", "品名"]].dropna().drop_duplicates().rename(columns={"晶圆": "晶圆品名"})
             main_df = pd.concat([main_df, part_df]).drop_duplicates().reset_index(drop=True)
     
+            # 解析“6月预测”列为完整年月
             month_only_pattern = re.compile(r"^(\d{1,2})月预测")
             month_map = {}
-    
             for col in df.columns:
                 if not isinstance(col, str):
                     continue
@@ -85,7 +90,7 @@ class PivotProcessor:
                 if new_col_name not in main_df.columns:
                     main_df[new_col_name] = 0
     
-                for idx, row in df.iterrows():
+                for _, row in df.iterrows():
                     product = str(row.get("品名", "")).strip()
                     wafer = str(row.get("晶圆", "")).strip()
                     spec = str(row.get("规格", "")).strip()
@@ -98,6 +103,7 @@ class PivotProcessor:
                     )
                     main_df.loc[mask, new_col_name] = val
     
+        # 添加订单/出货月份列
         all_months = extract_all_year_months(None, order_df, sales_df)
         for ym in all_months:
             main_df[f"{ym}-订单"] = 0
@@ -106,6 +112,7 @@ class PivotProcessor:
         main_df = fill_order_data(main_df, order_df.rename(columns=order_rename), all_months)
         main_df = fill_sales_data(main_df, sales_df.rename(columns=sales_rename), all_months)
     
+        # 输出 Excel
         output = BytesIO()
         with pd.ExcelWriter(output, engine="openpyxl") as writer:
             main_df.to_excel(writer, index=False, sheet_name="预测分析", startrow=1)
