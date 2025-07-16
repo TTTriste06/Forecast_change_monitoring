@@ -7,8 +7,6 @@ from datetime import datetime
 from openpyxl.styles import Font, Alignment, PatternFill
 from openpyxl.utils import get_column_letter
 
-
-
 class PivotProcessor:
     def process(self, forecast_files, order_df, sales_df, mapping_df):
         from mapping_utils import (
