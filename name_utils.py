@@ -51,17 +51,24 @@ def extract_unique_rows_from_all_sources(forecast_files, order_df, sales_df, map
 
     return result
 
-def build_main_df(forecast_df, order_df, sales_df, mapping_new, mapping_sub):
+def build_main_df(forecast_dfs: dict[str, pd.DataFrame], order_df, sales_df, mapping_new, mapping_sub):
     from mapping_utils import apply_mapping_and_merge, apply_extended_substitute_mapping
 
-    # 🧩 提取所有品名（预测第2列、订单、出货）
-    def extract_and_standardize(df, col_name):
-        df = df[[col_name]].copy()
+    # 🧩 提取所有品名（预测每个表第2列、订单、出货）
+    def extract_and_standardize(df, col):
+        df = df[[col]].copy()
         df.columns = ["品名"]
         df["品名"] = df["品名"].astype(str).str.strip()
         return df
 
-    forecast_names = extract_and_standardize(forecast_df.iloc[:, [1]], forecast_df.columns[1])
+    forecast_names_list = []
+    for name, df in forecast_dfs.items():
+        if df.shape[1] < 2:
+            continue  # 跳过列数不足的文件
+        col = df.columns[1]
+        forecast_names_list.append(extract_and_standardize(df, col))
+
+    forecast_names = pd.concat(forecast_names_list, ignore_index=True) if forecast_names_list else pd.DataFrame(columns=["品名"])
     order_names = extract_and_standardize(order_df, "品名")
     sales_names = extract_and_standardize(sales_df, "品名")
 
@@ -105,7 +112,8 @@ def build_main_df(forecast_df, order_df, sales_df, mapping_new, mapping_sub):
 
     main_df = try_fill(main_df, order_df, {})
     main_df = try_fill(main_df, sales_df, {"晶圆": "晶圆品名"})
-    main_df = try_fill(main_df, forecast_df.assign(晶圆品名=""), {"生产料号": "品名", "产品型号": "规格"})
 
+    for df in forecast_dfs.values():
+        main_df = try_fill(main_df, df.assign(晶圆品名=""), {"生产料号": "品名", "产品型号": "规格"})
 
     return main_df[["晶圆品名", "规格", "品名"]]
