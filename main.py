@@ -128,7 +128,7 @@ if st.button("🚀 开始处理") and forecast_files and order_file and sales_fi
     replaced_names = replace_all_names_with_mapping(all_names, mapping_new, mapping_sub)
 
     # 6️⃣ 构造总表：晶圆 + 规格 + 品名，优先从 mapping 表中取
-    mapping_dict = mapping_new.set_index("新品名")[["新晶圆品名", "新规格"]].copy()
+    mapping_dict = mapping_new.set_index("新品名")[["新晶圆", "新规格"]].copy()
     mapping_dict.columns = ["晶圆", "规格"]
     
     df_final = pd.DataFrame({"品名": replaced_names})
