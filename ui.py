@@ -5,9 +5,6 @@ def setup_sidebar():
     st.sidebar.markdown("请上传以下文件以生成主计划（不更新文件不用上传）")
 
 def get_uploaded_files():
-    st.subheader("📁 上传主计划模板")
-    template_file = st.file_uploader("上传主计划模板", type="xlsx", key="template")
-
     st.subheader("📈 上传预测数据")
     forecast_file = st.file_uploader("上传预测数据", type="xlsx", key="forecast")
 
