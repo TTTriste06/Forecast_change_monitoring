@@ -1,6 +1,95 @@
 import pandas as pd
 import streamlit as st
 import re
+from datetime import datetime
+from io import BytesIO
+
+def extract_forecast_generation_date(self, filename: str) -> str:
+    """从文件名中提取生成日期，返回格式为 yyyy-mm"""
+    match = re.search(r"_(\d{8})", filename)
+    if match:
+        date_str = match.group(1)
+        try:
+            dt = datetime.strptime(date_str, "%Y%m%d")
+            return dt.strftime("%Y-%m")
+        except ValueError:
+            pass
+    return "unknown"
+
+def extract_forecast_data(self, file: BytesIO) -> tuple[pd.DataFrame, str]:
+    """读取预测文件最长的sheet，并自动识别header行（包含‘产品型号’），返回DataFrame和生成年月"""
+    xls = pd.ExcelFile(file)
+    max_len = 0
+    selected_sheet = None
+
+    for sheet in xls.sheet_names:
+        df = xls.parse(sheet, header=None)
+        if df.shape[0] > max_len:
+            max_len = df.shape[0]
+            selected_sheet = sheet
+
+    df_raw = xls.parse(selected_sheet, header=None)
+
+    header_row_idx = None
+    for idx, row in df_raw.iterrows():
+        if row.astype(str).str.contains("产品型号").any():
+            header_row_idx = idx
+            break
+
+    if header_row_idx is None:
+        raise ValueError("❌ 未在文件中识别到包含‘产品型号’的header行")
+
+    df = pd.read_excel(file, sheet_name=selected_sheet, header=header_row_idx)
+    df.columns.values[1] = "品名"
+    return df, selected_sheet  # sheet名可选作备份信息
+
+def parse_forecast_months(self, forecast_df: pd.DataFrame, base_year: int) -> dict:
+    """
+    输入包含“x月预测”列的df，返回一个dict：
+    {"yyyy-mm": 原始列名}，自动判断跨年
+    """
+    pattern = re.compile(r"^(\d{1,2})月预测$")
+    col_map = {}
+
+    start_year = base_year
+    last_month = 0
+    for col in forecast_df.columns:
+        match = pattern.match(col)
+        if match:
+            month = int(match.group(1))
+            if last_month and month < last_month:
+                start_year += 1
+            last_month = month
+            ym = f"{start_year}-{month:02d}"
+            col_map[ym] = col
+    return col_map
+
+def append_multi_forecast_columns(
+    self,
+    main_df: pd.DataFrame,
+    forecast_df: pd.DataFrame,
+    col_map: dict,
+    label: str
+) -> pd.DataFrame:
+    """
+    在 main_df 中添加来自 forecast_df 的预测列，列名为 “label（yyyy-mm）”，
+    forecast_df 中“生产料号”为品名，col_map 为 {yyyy-mm: 原始列名}
+    """
+    forecast_df["生产料号"] = forecast_df["生产料号"].astype(str).str.strip()
+    forecast_df = forecast_df.rename(columns={"生产料号": "品名"})
+    main_df["品名"] = main_df["品名"].astype(str).str.strip()
+
+    for ym, orig_col in col_map.items():
+        new_col = f"{label}（{ym}）"
+        if new_col not in main_df.columns:
+            main_df[new_col] = 0
+        for i, row in main_df.iterrows():
+            name = row["品名"]
+            val = forecast_df.loc[forecast_df["品名"] == name, orig_col]
+            if not val.empty:
+                main_df.at[i, new_col] = val.values[0]
+    return main_df
+
 
 def merge_forecast_columns(forecast_dfs: dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
