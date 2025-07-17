@@ -15,8 +15,6 @@ class PivotProcessor:
 
 
         forecast_dfs = load_forecast_files(forecast_files)
-        st.write(forecast_dfs)
-        
         mapping_semi, mapping_new, mapping_sub = split_mapping_data(mapping_file)
 
 
@@ -28,13 +26,26 @@ class PivotProcessor:
             "sales": {"品名": "品名"}
         }
 
-        forecast_file, _ = apply_mapping_and_merge(forecast_file, mapping_new, FIELD_MAPPINGS["forecast"])
-        forecast_file, _ = apply_extended_substitute_mapping(forecast_file, mapping_sub, FIELD_MAPPINGS["forecast"])
+        # 替换所有 forecast_dfs 中的品名为新料号或替代料号
+        def apply_mapping_to_all_forecasts(forecast_dfs: dict[str, pd.DataFrame], mapping_new, mapping_sub, field_mapping: dict) -> dict[str, pd.DataFrame]:
+            from mapping_utils import apply_mapping_and_merge, apply_extended_substitute_mapping
+        
+            mapped_dfs = {}
+            for name, df in forecast_dfs.items():
+                df_mapped, _ = apply_mapping_and_merge(df.copy(), mapping_new, field_mapping)
+                df_mapped, _ = apply_extended_substitute_mapping(df_mapped, mapping_sub, field_mapping)
+                mapped_dfs[name] = df_mapped
+        
+            return mapped_dfs
+
+
+        forecast_dfs = apply_mapping_to_all_forecasts(forecast_dfs, mapping_new, mapping_sub, FIELD_MAPPINGS["forecast"])
         order_file, _ = apply_mapping_and_merge(order_file, mapping_new, FIELD_MAPPINGS["order"])
         order_file, _ = apply_extended_substitute_mapping(order_file, mapping_sub, FIELD_MAPPINGS["order"])
         sales_file, _ = apply_mapping_and_merge(sales_file, mapping_new, FIELD_MAPPINGS["sales"])
         sales_file, _ = apply_extended_substitute_mapping(sales_file, mapping_sub, FIELD_MAPPINGS["sales"])
 
+        
         all_months = extract_all_year_months(forecast_file, order_file, sales_file)
 
         for ym in all_months:
