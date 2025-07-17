@@ -105,6 +105,7 @@ def build_main_df(forecast_df, order_df, sales_df, mapping_new, mapping_sub):
 
     main_df = try_fill(main_df, order_df, {})
     main_df = try_fill(main_df, sales_df, {"晶圆": "晶圆品名"})
-    main_df = try_fill(forecast_df.assign(晶圆品名=""), {"生产料号": "品名", "产品型号": "规格"})
+    main_df = try_fill(main_df, forecast_df.assign(晶圆品名=""), {"生产料号": "品名", "产品型号": "规格"})
+
 
     return main_df[["晶圆品名", "规格", "品名"]]
