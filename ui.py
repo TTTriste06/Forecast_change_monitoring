@@ -18,4 +18,4 @@ def get_uploaded_files():
     mapping_file = st.file_uploader("上传新旧料号", type="xlsx", key="mapping")
 
     start = st.button("🚀 生成主计划")
-    return template_file, forecast_file, order_file, sales_file, mapping_file, start
+    return forecast_file, order_file, sales_file, mapping_file, start
