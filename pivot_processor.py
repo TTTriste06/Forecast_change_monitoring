@@ -117,24 +117,25 @@ class PivotProcessor:
                 "FFF2CC", "D9EAD3", "D0E0E3", "F4CCCC", "EAD1DC", "CFE2F3", "FFE599"
             ]
 
-            col = 4
+            col = 4  # 从第4列开始（假设前面是“晶圆品名”、“规格”、“品名”）
+
             for i, ym in enumerate(all_months):
-                ws.merge_cells(start_row=1, start_column=col+1, end_row=1, end_column=col+2)
-                top_cell = ws.cell(row=1, column=col+1)
+                ws.merge_cells(start_row=1, start_column=col, end_row=1, end_column=col + 1)
+                top_cell = ws.cell(row=1, column=col)
                 top_cell.value = ym
                 top_cell.alignment = Alignment(horizontal="center", vertical="center")
                 top_cell.font = Font(bold=True)
-
-                ws.cell(row=2, column=col+1).value = "订单"
-                ws.cell(row=2, column=col+2).value = "出货"
-
+            
+                ws.cell(row=2, column=col).value = "订单"
+                ws.cell(row=2, column=col + 1).value = "出货"
+            
                 fill = PatternFill(start_color=fill_colors[i % len(fill_colors)], end_color=fill_colors[i % len(fill_colors)], fill_type="solid")
-                for j in range(col+1, col+3):
+                for j in range(col, col + 2):
                     ws.cell(row=1, column=j).fill = fill
                     ws.cell(row=2, column=j).fill = fill
-
-                col += 3
-
+            
+                col += 2  # ✅ 修正这里：每轮推进2列
+            
             for col_idx, column_cells in enumerate(ws.columns, 1):
                 max_length = 0
                 for cell in column_cells:
