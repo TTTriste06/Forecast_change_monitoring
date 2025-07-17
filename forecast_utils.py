@@ -12,9 +12,12 @@ def load_forecast_files(files: dict) -> dict[str, pd.DataFrame]:
     """
     result = {}
 
-    for file_name, file in files.items():
+   
+
+    for uploaded_file in files:
+        file_name = uploaded_file.name
         try:
-            xls = pd.ExcelFile(file)
+            xls = pd.ExcelFile(uploaded_file)
             longest_sheet = max(xls.sheet_names, key=lambda name: pd.read_excel(xls, sheet_name=name).shape[0])
             df_raw = pd.read_excel(xls, sheet_name=longest_sheet, header=None)
 
