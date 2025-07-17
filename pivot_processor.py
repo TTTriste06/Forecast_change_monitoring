@@ -66,8 +66,8 @@ class PivotProcessor:
         mapping_semi, mapping_new, mapping_sub = split_mapping_data(mapping_file)
 
         for i, df in enumerate(forecast_dfs):
-            forecast_dfs[i], _ = apply_mapping_and_merge(df, mapping_new, {"品名": "生产料号"})
-            forecast_dfs[i], _ = apply_extended_substitute_mapping(forecast_dfs[i], mapping_sub, {"品名": "生产料号"})
+            forecast_dfs[i], _ = apply_mapping_and_merge(df, mapping_new, {"品名": "品名"})
+            forecast_dfs[i], _ = apply_extended_substitute_mapping(forecast_dfs[i], mapping_sub, {"品名": "品名"})
 
 
         forecast_file, _ = apply_mapping_and_merge(forecast_file, mapping_new, {"品名": "生产料号"})
