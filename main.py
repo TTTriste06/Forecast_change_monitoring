@@ -46,7 +46,7 @@ if st.button("🚀 开始处理") and forecast_files and order_file and sales_fi
         sheet_lengths = {sheet: pd.read_excel(xls, sheet).shape[0] for sheet in xls.sheet_names}
         longest_sheet = max(sheet_lengths, key=sheet_lengths.get)
         df_forecast = pd.read_excel(xls, sheet_name=longest_sheet, header=None)
-
+    
         # 检测 header 行：前三行中有“产品型号”者为 header
         header_row = None
         for i in range(3):
@@ -58,25 +58,30 @@ if st.button("🚀 开始处理") and forecast_files and order_file and sales_fi
                 if any(re.search(r"\d{1,2}月预测", str(cell)) for cell in df_forecast.iloc[i]):
                     header_row = i
                     break
-
+    
         if header_row is not None:
             df_forecast.columns = df_forecast.iloc[header_row]
             df_forecast = df_forecast.iloc[header_row + 1:].reset_index(drop=True)
+    
+            # ✅ 重命名第2列为“品名”（防止字段名异常）
+            if df_forecast.shape[1] >= 2:
+                df_forecast.columns = list(df_forecast.columns)
+                df_forecast.columns.values[1] = "品名"
         else:
             st.warning(f"⚠️ 无法识别预测文件 `{filename}` 的 header，已跳过")
             continue
-
+    
+        # 👀 显示预测数据
         st.write(f"📁 读取到的预测文件 `{filename}`：", df_forecast.head())
-        st.write(df_forecast)
-
+    
         df_forecast = df_forecast.rename(columns=lambda x: str(x).strip())
         if "品名" not in df_forecast.columns:
             st.warning(f"⚠️ 预测文件 `{filename}` 缺少“品名”列，已跳过")
             continue
-
+    
         df_forecast = df_forecast[["品名"]].copy()
         df_forecast["品名"] = df_forecast["品名"].astype(str).str.strip()
-
+    
         # 替换新旧料号
         df_forecast, _ = apply_all_name_replacements(
             df_forecast,
@@ -86,6 +91,7 @@ if st.button("🚀 开始处理") and forecast_files and order_file and sales_fi
             field_mappings=FIELD_MAPPINGS,
         )
         all_parts.append(df_forecast)
+
 
     # 3️⃣ 处理订单文件（Sheet）
     df_order = pd.read_excel(order_file, sheet_name="Sheet")
