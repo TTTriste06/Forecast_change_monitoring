@@ -28,16 +28,22 @@ class PivotProcessor:
 
         # 替换所有 forecast_dfs 中的品名为新料号或替代料号
         def apply_mapping_to_all_forecasts(forecast_dfs: dict[str, pd.DataFrame], mapping_new, mapping_sub) -> dict[str, pd.DataFrame]:
+            from mapping_utils import apply_mapping_and_merge, apply_extended_substitute_mapping
+        
             mapped_dfs = {}
             for name, df in forecast_dfs.items():
                 if df.shape[1] < 2:
-                    continue  # 跳过列数不足的情况
-                second_col = df.columns[1]
+                    continue  # 跳过列数不足的 DataFrame
+        
+                second_col = df.columns[1]  # 第2列作为品名列
                 field_mapping = {"品名": second_col}
         
-                df_mapped, _ = apply_mapping_and_merge(df.copy(), mapping_new, field_mapping)
-                df_mapped, _ = apply_extended_substitute_mapping(df_mapped, mapping_sub, field_mapping)
-                mapped_dfs[name] = df_mapped
+                try:
+                    df_mapped, _ = apply_mapping_and_merge(df.copy(), mapping_new, field_mapping)
+                    df_mapped, _ = apply_extended_substitute_mapping(df_mapped, mapping_sub, field_mapping)
+                    mapped_dfs[name] = df_mapped
+                except KeyError as e:
+                    raise ValueError(f"❌ 在处理 `{name}` 时找不到列: {e}. 实际列为: {df.columns.tolist()}") from e
         
             return mapped_dfs
 
