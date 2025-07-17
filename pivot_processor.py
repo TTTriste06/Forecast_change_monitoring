@@ -55,7 +55,7 @@ class PivotProcessor:
         sales_file, _ = apply_extended_substitute_mapping(sales_file, mapping_sub, FIELD_MAPPINGS["sales"])
 
         
-        all_months = extract_all_year_months(forecast_file, order_file, sales_file)
+        all_months = extract_all_year_months(forecast_dfs, order_df, sales_df)
 
         for ym in all_months:
             main_df[f"{ym}-预测"] = 0
