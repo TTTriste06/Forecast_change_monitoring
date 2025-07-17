@@ -147,4 +147,3 @@ class PivotProcessor:
 
         output.seek(0)
         return main_df, output
-
