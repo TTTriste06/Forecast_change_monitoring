@@ -6,55 +6,66 @@ from openpyxl import load_workbook
 from openpyxl.styles import PatternFill
 
 
-def extract_all_year_months(df_forecast, df_order, df_sales, forecast_year = None):
-    # 1. 从 forecast header 提取 x月预测 列中的月份
+import pandas as pd
+import re
+from datetime import datetime
+
+def extract_all_year_months(forecast_dfs: dict[str, pd.DataFrame], df_order, df_sales, forecast_year=None) -> list[str]:
     if forecast_year is None:
         forecast_year = datetime.today().year
+
     month_pattern = re.compile(r"(\d{1,2})月预测")
     forecast_months = []
-    for col in df_forecast.columns:
-        match = month_pattern.match(str(col))
-        if match:
-            month = match.group(1).zfill(2)
-            forecast_months.append(f"{forecast_year}-{month}")  # ✅ 根据需要调整年份
 
-    # 2. 从 order 文件第 B 列（假设是“订单日期”）
-    order_date_col = df_order.columns[11]
-    df_order[order_date_col] = pd.to_datetime(df_order[order_date_col],  format="%Y-%m", errors="coerce")
-    order_months = (
-        df_order[order_date_col]
-        .dropna()
-        .dt.to_period("M")
-        .astype(str)
-        .loc[lambda x: x != "NaT"]
-        .unique()
-        .tolist()
-    )
+    # 1. 遍历所有预测表提取 “x月预测” 列
+    for df in forecast_dfs.values():
+        for col in df.columns:
+            match = month_pattern.match(str(col).strip())
+            if match:
+                month = match.group(1).zfill(2)
+                forecast_months.append(f"{forecast_year}-{month}")
 
-    # 3. 从 sales 文件第 F 列（假设是“交易日期”）
-    sales_date_col = df_sales.columns[5]
-    df_sales[sales_date_col] = pd.to_datetime(df_sales[sales_date_col], format="%Y-%m", errors="coerce")
-    sales_months = (
-        df_sales[sales_date_col]
-        .dropna()
-        .dt.to_period("M")
-        .astype(str)
-        .loc[lambda x: x != "NaT"]
-        .unique()
-        .tolist()
-    )
+    # 2. 提取 order 文件第 12 列的月份（假设为“订单日期”）
+    try:
+        order_date_col = df_order.columns[11]
+        df_order[order_date_col] = pd.to_datetime(df_order[order_date_col], format="%Y-%m", errors="coerce")
+        order_months = (
+            df_order[order_date_col]
+            .dropna()
+            .dt.to_period("M")
+            .astype(str)
+            .unique()
+            .tolist()
+        )
+    except Exception:
+        order_months = []
 
-    # 合并并去重
+    # 3. 提取 sales 文件第 6 列的月份（假设为“交易日期”）
+    try:
+        sales_date_col = df_sales.columns[5]
+        df_sales[sales_date_col] = pd.to_datetime(df_sales[sales_date_col], format="%Y-%m", errors="coerce")
+        sales_months = (
+            df_sales[sales_date_col]
+            .dropna()
+            .dt.to_period("M")
+            .astype(str)
+            .unique()
+            .tolist()
+        )
+    except Exception:
+        sales_months = []
+
+    # 4. 合并所有月份来源并去重
     all_months = sorted(set(forecast_months + order_months + sales_months))
 
-    # 生成从最小到最大之间的所有月份
+    # 5. 生成从最小到最大之间的所有月份
     if all_months:
         min_month = pd.Period(min(all_months), freq="M")
         max_month = pd.Period(max(all_months), freq="M")
         full_months = [str(p) for p in pd.period_range(min_month, max_month, freq="M")]
     else:
         full_months = []
-    
+
     return full_months
 
 def fill_forecast_data(main_df: pd.DataFrame, df_forecast: pd.DataFrame) -> pd.DataFrame:
