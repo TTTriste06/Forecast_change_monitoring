@@ -6,7 +6,7 @@ def setup_sidebar():
 
 def get_uploaded_files():
     st.subheader("📈 上传预测数据")
-    forecast_file = st.file_uploader("上传预测数据", type="xlsx", key="forecast")
+    forecast_files = st.file_uploader("上传预测数据（支持多个文件）", type="xlsx", key="forecast", accept_multiple_files=True)
 
     st.subheader("📦 上传未交订单")
     order_file = st.file_uploader("上传未交订单(Sheet)", type="xlsx", key="order")
@@ -18,4 +18,4 @@ def get_uploaded_files():
     mapping_file = st.file_uploader("上传新旧料号", type="xlsx", key="mapping")
 
     start = st.button("🚀 生成主计划")
-    return forecast_file, order_file, sales_file, mapping_file, start
+    return forecast_files, order_file, sales_file, mapping_file, start
