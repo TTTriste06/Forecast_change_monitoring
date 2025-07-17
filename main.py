@@ -143,26 +143,6 @@ if st.button("🚀 开始处理") and forecast_files and order_file and sales_fi
     # 显示当前初步结果
     st.write("🔎 替换后的主品名表（含规格与晶圆）前几行：", df_display.head())
     
-    # 从订单或出货中补充缺失规格/晶圆
-    missing_spec = df_final["规格"].isna()
-    if missing_spec.any():
-        # 合并出货和订单字段（品名、规格、晶圆）
-        alt_spec = (
-            pd.concat([df_order.rename(columns={"晶圆品名": "品名"}), df_sales], ignore_index=True)
-            .dropna(subset=["品名"])
-            .drop_duplicates(subset=["品名"])  # 🛡️ 确保唯一
-            [["品名", "规格", "晶圆"]]
-        )
-    
-        # 🔐 断言合并前唯一性
-        assert alt_spec["品名"].is_unique, "❌ alt_spec 中品名不是唯一的"
-    
-        # 合并补规格
-        df_final = df_final.merge(alt_spec, on="品名", how="left", suffixes=("", "_alt"))
-        df_final["规格"] = df_final["规格"].fillna(df_final["规格_alt"])
-        df_final["晶圆"] = df_final["晶圆"].fillna(df_final["晶圆_alt"])
-        df_final = df_final.drop(columns=["规格_alt", "晶圆_alt"])
-    
     # ✅ 最终结果展示
     df_final = df_final[["晶圆", "规格", "品名"]]
     
