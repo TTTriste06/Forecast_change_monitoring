@@ -10,11 +10,47 @@ class PivotProcessor:
     def process(self, template_df, forecast_file, order_file, sales_file, mapping_file):
         from mapping_utils import apply_mapping_and_merge, apply_extended_substitute_mapping, split_mapping_data
         from info_extract import extract_all_year_months, fill_forecast_data, fill_order_data, fill_sales_data, highlight_by_detecting_column_headers
-
+        from name_utils import extract_unique_rows_from_all_sources
+        
         mapping_semi, mapping_new, mapping_sub = split_mapping_data(mapping_file)
 
-        main_df = template_df[["晶圆", "规格", "品名"]].copy()
-        main_df.columns = ["晶圆品名", "规格", "品名"]
+        # ✅ 自动构造 main_df，不再依赖 template_df
+        def build_main_df():
+            def extract_and_standardize(df, col_name):
+                df = df[[col_name]].copy()
+                df.columns = ["品名"]
+                df["品名"] = df["品名"].astype(str).str.strip()
+                return df
+        
+            df_forecast_names = extract_and_standardize(forecast_file.iloc[:, [1]], forecast_file.columns[1])
+            df_order_names = extract_and_standardize(order_file, "品名")
+            df_sales_names = extract_and_standardize(sales_file, "品名")
+        
+            all_names = pd.concat([df_forecast_names, df_order_names, df_sales_names], ignore_index=True).drop_duplicates()
+        
+            all_names, _ = apply_mapping_and_merge(all_names, mapping_new, {"品名": "品名"})
+            all_names, _ = apply_extended_substitute_mapping(all_names, mapping_sub, {"品名": "品名"})
+        
+            mapping_clean = mapping_new.copy()
+            mapping_clean["新品名"] = mapping_clean["新品名"].astype(str).str.strip()
+            mapping_clean["新晶圆"] = mapping_clean["新晶圆"].astype(str).str.strip()
+            mapping_clean["新规格"] = mapping_clean["新规格"].astype(str).str.strip()
+        
+            merged = all_names.merge(
+                mapping_clean[["新品名", "新晶圆", "新规格"]],
+                left_on="品名",
+                right_on="新品名",
+                how="left"
+            ).drop(columns=["新品名"], errors="ignore")
+        
+            merged = merged.rename(columns={"新晶圆": "晶圆品名", "新规格": "规格"})
+            merged["晶圆品名"] = merged["晶圆品名"].fillna("")
+            merged["规格"] = merged["规格"].fillna("")
+        
+            return merged[["晶圆品名", "规格", "品名"]]
+        
+        main_df = build_main_df()
+
 
         FIELD_MAPPINGS = {
             "forecast": {"品名": "生产料号"},
