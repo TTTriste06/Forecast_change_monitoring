@@ -22,6 +22,8 @@ class PivotProcessor:
             detect_forecast_header
         )
 
+        st.write(mapping_df)
+
         mapping_semi, mapping_new, mapping_sub = split_mapping_data(mapping_df)
         order_rename = {}
         sales_rename = {"晶圆": "晶圆品名"}
