@@ -28,9 +28,11 @@ class PivotProcessor:
         
             all_names = pd.concat([df_forecast_names, df_order_names, df_sales_names], ignore_index=True).drop_duplicates()
         
+            # 新旧料号替换
             all_names, _ = apply_mapping_and_merge(all_names, mapping_new, {"品名": "品名"})
             all_names, _ = apply_extended_substitute_mapping(all_names, mapping_sub, {"品名": "品名"})
         
+            # 从映射表获取晶圆、规格
             mapping_clean = mapping_new.copy()
             mapping_clean["新品名"] = mapping_clean["新品名"].astype(str).str.strip()
             mapping_clean["新晶圆"] = mapping_clean["新晶圆"].astype(str).str.strip()
@@ -47,10 +49,38 @@ class PivotProcessor:
             merged["晶圆品名"] = merged["晶圆品名"].fillna("")
             merged["规格"] = merged["规格"].fillna("")
         
-            return merged[["晶圆品名", "规格", "品名"]]
+            # ✅ 如果还有空规格或晶圆品名，尝试从原始文件中补全
+            def try_fill_from(df, col_map, source_name):
+                df_temp = df.copy()
+                df_temp = df_temp.rename(columns=col_map)
+                df_temp = df_temp[["品名", "规格", "晶圆品名"]].dropna(subset=["品名"])
+                df_temp["品名"] = df_temp["品名"].astype(str).str.strip()
+                df_temp["规格"] = df_temp["规格"].astype(str).str.strip()
+                df_temp["晶圆品名"] = df_temp["晶圆品名"].astype(str).str.strip()
+                return df_temp.drop_duplicates()
         
-        main_df = build_main_df()
+            order_info = try_fill_from(order_file, {}, "order")
+            sales_info = try_fill_from(sales_file, {"晶圆": "晶圆品名"}, "sales")
+            forecast_info = try_fill_from(forecast_file, {"生产料号": "品名", "产品型号": "规格"}, "forecast")
+            forecast_info["晶圆品名"] = ""  # 预测中没有晶圆
+        
+            combined = pd.concat([order_info, sales_info, forecast_info], ignore_index=True)
+        
+            # 按照品名左连接补齐规格和晶圆品名
+            merged = merged.merge(
+                combined,
+                on="品名",
+                how="left",
+                suffixes=("", "_补")
+            )
+        
+            # 如果原规格/晶圆为空，用补字段补上
+            merged["规格"] = merged["规格"].mask(merged["规格"] == "", merged["规格_补"])
+            merged["晶圆品名"] = merged["晶圆品名"].mask(merged["晶圆品名"] == "", merged["晶圆品名_补"])
+        
+            return merged[["晶圆品名", "规格", "品名"]]
 
+        main_df = build_main_df()
 
         FIELD_MAPPINGS = {
             "forecast": {"品名": "生产料号"},
