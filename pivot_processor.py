@@ -53,11 +53,22 @@ class PivotProcessor:
             def try_fill_from(df, col_map, source_name):
                 df_temp = df.copy()
                 df_temp = df_temp.rename(columns=col_map)
-                df_temp = df_temp[["品名", "规格", "晶圆品名"]].dropna(subset=["品名"])
+            
+                # 如果没有晶圆品名列，则补一个空的
+                if "晶圆品名" not in df_temp.columns:
+                    df_temp["晶圆品名"] = ""
+            
+                required_cols = ["品名", "规格", "晶圆品名"]
+                missing_cols = [col for col in required_cols if col not in df_temp.columns]
+                for col in missing_cols:
+                    df_temp[col] = ""
+            
+                df_temp = df_temp[required_cols].dropna(subset=["品名"])
                 df_temp["品名"] = df_temp["品名"].astype(str).str.strip()
                 df_temp["规格"] = df_temp["规格"].astype(str).str.strip()
                 df_temp["晶圆品名"] = df_temp["晶圆品名"].astype(str).str.strip()
                 return df_temp.drop_duplicates()
+
         
             order_info = try_fill_from(order_file, {}, "order")
             sales_info = try_fill_from(sales_file, {"晶圆": "晶圆品名"}, "sales")
