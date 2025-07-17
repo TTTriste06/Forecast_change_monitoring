@@ -66,6 +66,9 @@ if st.button("🚀 开始处理") and forecast_files and order_file and sales_fi
             st.warning(f"⚠️ 无法识别预测文件 `{filename}` 的 header，已跳过")
             continue
 
+        st.write(f"📁 读取到的预测文件 `{filename}`：", df_forecast.head())
+        st.write(df_forecast)
+
         df_forecast = df_forecast.rename(columns=lambda x: str(x).strip())
         if "品名" not in df_forecast.columns:
             st.warning(f"⚠️ 预测文件 `{filename}` 缺少“品名”列，已跳过")
@@ -84,16 +87,33 @@ if st.button("🚀 开始处理") and forecast_files and order_file and sales_fi
         )
         all_parts.append(df_forecast)
 
-    # 3️⃣ 处理订单
+    # 3️⃣ 处理订单文件（Sheet）
     df_order = pd.read_excel(order_file, sheet_name="Sheet")
+    st.write("📄 读取到的订单数据：", df_order.head())
+    
+    if "晶圆品名" not in df_order.columns:
+        st.error("❌ 订单文件中缺少“晶圆品名”字段，请检查 Sheet 表格。")
+        st.stop()
+    
     df_order["晶圆品名"] = df_order["晶圆品名"].astype(str).str.strip()
-    df_order, _ = apply_all_name_replacements(df_order, mapping_new, mapping_sub, "订单", FIELD_MAPPINGS)
+    df_order, _ = apply_all_name_replacements(
+        df_order, mapping_new, mapping_sub, "订单", FIELD_MAPPINGS
+    )
     all_parts.append(df_order[["晶圆品名"]].rename(columns={"晶圆品名": "品名"}))
-
-    # 4️⃣ 处理出货
+    
+    
+    # 4️⃣ 处理出货文件（原表）
     df_sales = pd.read_excel(sales_file, sheet_name="原表")
+    st.write("📄 读取到的出货数据：", df_sales.head())
+    
+    if "品名" not in df_sales.columns:
+        st.error("❌ 出货文件中缺少“品名”字段，请检查 原表 表格。")
+        st.stop()
+    
     df_sales["品名"] = df_sales["品名"].astype(str).str.strip()
-    df_sales, _ = apply_all_name_replacements(df_sales, mapping_new, mapping_sub, "出货", FIELD_MAPPINGS)
+    df_sales, _ = apply_all_name_replacements(
+        df_sales, mapping_new, mapping_sub, "出货", FIELD_MAPPINGS
+    )
     all_parts.append(df_sales[["品名"]])
 
     # 5️⃣ 合并去重品名并进行再次统一替换
