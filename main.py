@@ -128,30 +128,53 @@ if st.button("🚀 开始处理") and forecast_files and order_file and sales_fi
     replaced_names = replace_all_names_with_mapping(all_names, mapping_new, mapping_sub)
 
     # 6️⃣ 构造总表：晶圆 + 规格 + 品名，优先从 mapping 表中取
-    mapping_dict = mapping_new.set_index("新品名")[["新晶圆", "新规格"]].copy()
+    mapping_dict = mapping_new.set_index("新品名")[["新晶圆品名", "新规格"]].copy()
     mapping_dict.columns = ["晶圆", "规格"]
-
+    
     df_final = pd.DataFrame({"品名": replaced_names})
     df_final = df_final.merge(mapping_dict, how="left", left_on="品名", right_index=True)
-
+    
+    # 🧽 清理展示用 DataFrame，防止 Arrow 错误
+    df_display = df_final.copy()
+    df_display.columns = df_display.columns.map(str)
+    for col in df_display.columns:
+        df_display[col] = df_display[col].astype(str)
+    
+    # 显示当前初步结果
+    st.write("🔎 替换后的主品名表（含规格与晶圆）前几行：", df_display.head())
+    
     # 从订单或出货中补充缺失规格/晶圆
     missing_spec = df_final["规格"].isna()
     if missing_spec.any():
+        # 合并出货和订单字段（品名、规格、晶圆）
         alt_spec = (
             pd.concat([df_order.rename(columns={"晶圆品名": "品名"}), df_sales], ignore_index=True)
             .dropna(subset=["品名"])
-            .drop_duplicates(subset=["品名"])
+            .drop_duplicates(subset=["品名"])  # 🛡️ 确保唯一
             [["品名", "规格", "晶圆"]]
         )
+    
+        # 🔐 断言合并前唯一性
+        assert alt_spec["品名"].is_unique, "❌ alt_spec 中品名不是唯一的"
+    
+        # 合并补规格
         df_final = df_final.merge(alt_spec, on="品名", how="left", suffixes=("", "_alt"))
         df_final["规格"] = df_final["规格"].fillna(df_final["规格_alt"])
         df_final["晶圆"] = df_final["晶圆"].fillna(df_final["晶圆_alt"])
         df_final = df_final.drop(columns=["规格_alt", "晶圆_alt"])
-
+    
+    # ✅ 最终结果展示
     df_final = df_final[["晶圆", "规格", "品名"]]
-
+    
+    # 展示前再次清理，确保安全显示
+    df_final_display = df_final.copy()
+    df_final_display.columns = df_final_display.columns.map(str)
+    for col in df_final_display.columns:
+        df_final_display[col] = df_final_display[col].astype(str)
+    
     st.success("✅ 总品名表生成成功！")
-    st.dataframe(df_final, use_container_width=True)
-
+    st.dataframe(df_final_display, use_container_width=True)
+    
+    # 📥 下载
     csv = df_final.to_csv(index=False, encoding="utf-8-sig")
     st.download_button("📥 下载结果 CSV", csv, file_name="总品名列表.csv")
