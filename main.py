@@ -10,17 +10,16 @@ def main():
     st.set_page_config(page_title="预测分析主计划工具", layout="wide")
     st.title("📊 预测分析主计划生成器")
     
-    template_file, forecast_file, order_file, sales_file, mapping_file, start = get_uploaded_files()
+    forecast_file, order_file, sales_file, mapping_file, start = get_uploaded_files()
     
     if start:    
-        template_df = load_file_with_github_fallback("template", template_file, sheet_name=0, header=1)
         forecast_df = load_file_with_github_fallback("forecast", forecast_file, sheet_name="预测")
         order_df = load_file_with_github_fallback("order", order_file, sheet_name="Sheet")
         sales_df = load_file_with_github_fallback("sales", sales_file, sheet_name="原表")
         mapping_df = load_file_with_github_fallback("mapping", mapping_file, sheet_name=0)
     
         processor = PivotProcessor()
-        df_result, excel_output = processor.process(template_df, forecast_df, order_df, sales_df, mapping_df)
+        df_result, excel_output = processor.process(forecast_df, order_df, sales_df, mapping_df)
     
         st.success("✅ 主计划生成成功！")
         st.dataframe(df_result, use_container_width=True)
