@@ -85,13 +85,13 @@ if st.button("🚀 开始处理") and forecast_files and order_file and sales_fi
         all_parts.append(df_forecast)
 
     # 3️⃣ 处理订单
-    df_order = pd.read_excel(order_file)
+    df_order = pd.read_excel(order_file, sheet_name="Sheet")
     df_order["晶圆品名"] = df_order["晶圆品名"].astype(str).str.strip()
     df_order, _ = apply_all_name_replacements(df_order, mapping_new, mapping_sub, "订单", FIELD_MAPPINGS)
     all_parts.append(df_order[["晶圆品名"]].rename(columns={"晶圆品名": "品名"}))
 
     # 4️⃣ 处理出货
-    df_sales = pd.read_excel(sales_file)
+    df_sales = pd.read_excel(sales_file, sheet_name="原表")
     df_sales["品名"] = df_sales["品名"].astype(str).str.strip()
     df_sales, _ = apply_all_name_replacements(df_sales, mapping_new, mapping_sub, "出货", FIELD_MAPPINGS)
     all_parts.append(df_sales[["品名"]])
