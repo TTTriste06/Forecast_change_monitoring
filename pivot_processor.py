@@ -7,7 +7,7 @@ from io import BytesIO
 import re
 
 class PivotProcessor:
-    def process(self, template_df, forecast_file, order_file, sales_file, mapping_file):
+    def process(self, forecast_file, order_file, sales_file, mapping_file):
         from mapping_utils import apply_mapping_and_merge, apply_extended_substitute_mapping, split_mapping_data
         from info_extract import extract_all_year_months, fill_forecast_data, fill_order_data, fill_sales_data, highlight_by_detecting_column_headers
         from name_utils import extract_unique_rows_from_all_sources
