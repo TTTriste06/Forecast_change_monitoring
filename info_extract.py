@@ -68,40 +68,37 @@ def extract_all_year_months(forecast_dfs: dict[str, pd.DataFrame], df_order, df_
 
     return full_months
 
-def fill_forecast_data(main_df: pd.DataFrame, df_forecast: pd.DataFrame) -> pd.DataFrame:
+def fill_forecast_data(main_df: pd.DataFrame, forecast_dfs: dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    从 df_forecast 中提取“生产料号”作为品名，解析“x月预测”列，填入 main_df 中“yyyy-mm-预测”字段。
-    默认使用当前年份。
+    从 forecast_dfs 中提取所有“x月的预测”列，按品名写入 main_df 中。
+    不合并同月不同文件的预测，而是生成多个独立列。
     """
-    # 使用当前年份
-    current_year = datetime.today().year
+    month_pattern = re.compile(r"^(\d{4})[-年](\d{1,2})月的预测$")
 
-    # 统一格式处理
-    df_forecast["生产料号"] = df_forecast["生产料号"].astype(str).str.strip()
-    df_forecast["品名"] = df_forecast["生产料号"]
+    for file_name, df in forecast_dfs.items():
+        if df.shape[1] < 2:
+            continue
 
-    # 正则提取“x月预测”字段
-    month_pattern = re.compile(r"^\s*(\d{1,2})月\s*预测\s*$")
-    forecast_cols = {
-        f"{current_year}-{match.group(1).zfill(2)}": col
-        for col in df_forecast.columns
-        if (match := month_pattern.match(str(col)))
-    }
+        # 第2列作为品名列
+        name_col = df.columns[1]
+        df["品名"] = df[name_col].astype(str).str.strip()
 
-    for ym, month_col in forecast_cols.items():
-        target_col = f"{ym}-预测"
-        if target_col not in main_df.columns:
-            main_df[target_col] = 0  # 若不存在则新建
+        for col in df.columns:
+            match = month_pattern.match(str(col).strip())
+            if not match:
+                continue
 
-        # 按“品名”聚合预测数据并写入
-        forecast_series = (
-            df_forecast.groupby("品名")[month_col]
-            .sum(min_count=1)
-        )
+            # 构造唯一列名：文件名-列名
+            clean_col_name = f"{file_name}-{col}".replace(".xlsx", "").replace(".xls", "").strip()
+            if clean_col_name not in main_df.columns:
+                main_df[clean_col_name] = 0
 
-        main_df[target_col] = main_df["品名"].map(forecast_series).fillna(0)
+            # 提取并映射
+            forecast_series = df[["品名", col]].dropna().groupby("品名")[col].sum(min_count=1)
+            main_df[clean_col_name] = main_df["品名"].map(forecast_series).fillna(0)
 
     return main_df
+
 
 
 
