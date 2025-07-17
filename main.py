@@ -13,7 +13,7 @@ def main():
     forecast_file, order_file, sales_file, mapping_file, start = get_uploaded_files()
     
     if start:    
-        forecast_df = load_file_with_github_fallback("forecast", forecast_file, sheet_name="预测")
+        forecast_df = load_file_with_github_fallback("forecast", forecast_file)
         order_df = load_file_with_github_fallback("order", order_file, sheet_name="Sheet")
         sales_df = load_file_with_github_fallback("sales", sales_file, sheet_name="原表")
         mapping_df = load_file_with_github_fallback("mapping", mapping_file, sheet_name=0)
