@@ -30,7 +30,9 @@ FIELD_MAPPINGS = {
 if st.button("🚀 开始处理") and forecast_files and order_file and sales_file and mapping_file:
     # 1️⃣ 解析新旧料号映射
     mapping_raw = pd.read_excel(mapping_file)
+    st.write(mapping_raw)
     mapping_df = clean_mapping_headers(mapping_raw)
+    st.write(mapping_df)
     mapping_semi, mapping_new, mapping_sub = split_mapping_data(mapping_df)
 
     current_year = datetime.now().year
