@@ -58,11 +58,10 @@ class PivotProcessor:
         all_months = extract_all_year_months(forecast_dfs, order_file, sales_file)
 
         for ym in all_months:
-            main_df[f"{ym}-预测"] = 0
             main_df[f"{ym}-订单"] = 0
             main_df[f"{ym}-出货"] = 0
 
-        main_df = fill_forecast_data(main_df, forecast_file)
+        main_df = fill_forecast_data(main_df, forecast_dfs)
         main_df = fill_order_data(main_df, order_file, all_months)
         main_df = fill_sales_data(main_df, sales_file, all_months)
 
