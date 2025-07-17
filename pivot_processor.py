@@ -60,14 +60,15 @@ class PivotProcessor:
             return main_df, sorted(all_months), forecast_origin_map
 
         # === 主流程 ===
-        forecast_dfs = load_forecast_files(forecast_files)
+        forecast_dfs, forecast_files = load_forecast_files(forecast_files)
         forecast_file = pd.concat(forecast_dfs, ignore_index=True)
 
         mapping_semi, mapping_new, mapping_sub = split_mapping_data(mapping_file)
 
-        for i in range(len(forecast_dfs)):
-            forecast_dfs[i], _ = apply_mapping_and_merge(forecast_dfs[i], mapping_new, {"品名": "生产料号"})
+        for i, df in enumerate(forecast_dfs):
+            forecast_dfs[i], _ = apply_mapping_and_merge(df, mapping_new, {"品名": "生产料号"})
             forecast_dfs[i], _ = apply_extended_substitute_mapping(forecast_dfs[i], mapping_sub, {"品名": "生产料号"})
+
 
         forecast_file, _ = apply_mapping_and_merge(forecast_file, mapping_new, {"品名": "生产料号"})
         forecast_file, _ = apply_extended_substitute_mapping(forecast_file, mapping_sub, {"品名": "生产料号"})
