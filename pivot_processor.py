@@ -5,19 +5,18 @@ from openpyxl.styles import Font
 from openpyxl.utils.dataframe import dataframe_to_rows
 from io import BytesIO
 import re
+from datetime import datetime
 
 class PivotProcessor:
     def process(self, forecast_files, order_file, sales_file, mapping_file):
         from mapping_utils import apply_mapping_and_merge, apply_extended_substitute_mapping, split_mapping_data
-        from info_extract import extract_all_year_months, fill_forecast_data, fill_order_data, fill_sales_data, highlight_by_detecting_column_headers
-        from name_utils import extract_unique_rows_from_all_sources, build_main_df
+        from info_extract import extract_all_year_months, fill_order_data, fill_sales_data, highlight_by_detecting_column_headers
+        from name_utils import build_main_df
         from forecast_utils import load_forecast_files
 
-
+        # ✅ 加载原始预测文件
         forecast_dfs = load_forecast_files(forecast_files)
         mapping_semi, mapping_new, mapping_sub = split_mapping_data(mapping_file)
-
-
         main_df = build_main_df(forecast_dfs, order_file, sales_file, mapping_new, mapping_sub)
 
         FIELD_MAPPINGS = {
@@ -26,27 +25,22 @@ class PivotProcessor:
             "sales": {"品名": "品名"}
         }
 
-        # 替换所有 forecast_dfs 中的品名为新料号或替代料号
+        # ✅ 替换预测中品名
         def apply_mapping_to_all_forecasts(forecast_dfs: dict[str, pd.DataFrame], mapping_new, mapping_sub) -> dict[str, pd.DataFrame]:
             from mapping_utils import apply_mapping_and_merge, apply_extended_substitute_mapping
-        
             mapped_dfs = {}
             for name, df in forecast_dfs.items():
                 if df.shape[1] < 2:
-                    continue  # 跳过列数不足的 DataFrame
-        
-                second_col = df.columns[1]  # 第2列作为品名列
+                    continue
+                second_col = df.columns[1]
                 field_mapping = {"品名": second_col}
-        
                 try:
                     df_mapped, _ = apply_mapping_and_merge(df.copy(), mapping_new, field_mapping)
                     df_mapped, _ = apply_extended_substitute_mapping(df_mapped, mapping_sub, field_mapping)
                     mapped_dfs[name] = df_mapped
                 except KeyError as e:
-                    raise ValueError(f"❌ 在处理 `{name}` 时找不到列: {e}. 实际列为: {df.columns.tolist()}") from e
-        
+                    raise ValueError(f"❌ `{name}` 缺失列: {e}. 实际列: {df.columns.tolist()}") from e
             return mapped_dfs
-
 
         forecast_dfs = apply_mapping_to_all_forecasts(forecast_dfs, mapping_new, mapping_sub)
         order_file, _ = apply_mapping_and_merge(order_file, mapping_new, FIELD_MAPPINGS["order"])
@@ -54,23 +48,59 @@ class PivotProcessor:
         sales_file, _ = apply_mapping_and_merge(sales_file, mapping_new, FIELD_MAPPINGS["sales"])
         sales_file, _ = apply_extended_substitute_mapping(sales_file, mapping_sub, FIELD_MAPPINGS["sales"])
 
-        
+        # ✅ 提取所有月份（订单/出货用）
         all_months = extract_all_year_months(forecast_dfs, order_file, sales_file)
-
         for ym in all_months:
             main_df[f"{ym}-订单"] = 0
             main_df[f"{ym}-出货"] = 0
+
+        # ✅ 填充所有预测数据（独立列）
+        def extract_file_date(file_name: str) -> str:
+            match = re.search(r"(\d{8})", file_name)
+            return match.group(1) if match else "00000000"
+
+        def detect_header_row(df: pd.DataFrame) -> int:
+            for i, row in df.iterrows():
+                if any(isinstance(cell, str) and "产品型号" in str(cell) for cell in row):
+                    return i
+            return 0
+
+        def standardize_column_name(forecast_col: str, file_date: str) -> str:
+            month_match = re.match(r"^(\d{1,2})月预测$", forecast_col.strip())
+            alt_match = re.match(r"^(\d{1,2})月预测\d*$", forecast_col.strip())
+            if month_match or alt_match:
+                month = (month_match or alt_match).group(1).zfill(2)
+            else:
+                return f"{file_date}-{forecast_col.strip()}"
+            file_year = file_date[:4]
+            file_month = file_date[4:6]
+            return f"{file_year}-{month}的预测（{file_year}-{file_month}生成）"
+
+        def fill_forecast_data(main_df: pd.DataFrame, forecast_dfs: dict[str, pd.DataFrame]) -> pd.DataFrame:
+            for file_name, df in forecast_dfs.items():
+                file_date = extract_file_date(file_name)
+                name_col = "生产料号" if "生产料号" in df.columns else (df.columns[1] if df.shape[1] >= 2 else None)
+                if name_col is None:
+                    continue
+                df["品名"] = df[name_col].astype(str).str.strip()
+                for col in df.columns:
+                    if isinstance(col, str) and "预测" in col:
+                        new_col = standardize_column_name(col, file_date)
+                        if new_col not in main_df.columns:
+                            main_df[new_col] = 0
+                        forecast_series = df[["品名", col]].dropna().groupby("品名")[col].sum(min_count=1)
+                        main_df[new_col] = main_df["品名"].map(forecast_series).fillna(0)
+            return main_df
 
         main_df = fill_forecast_data(main_df, forecast_dfs)
         main_df = fill_order_data(main_df, order_file, all_months)
         main_df = fill_sales_data(main_df, sales_file, all_months)
 
+        # ✅ 写入 Excel
         output = BytesIO()
         with pd.ExcelWriter(output, engine="openpyxl") as writer:
             main_df.to_excel(writer, index=False, sheet_name="预测分析", startrow=1)
             ws = writer.sheets["预测分析"]
-            wb = writer.book
-
             highlight_by_detecting_column_headers(ws)
 
             from openpyxl.styles import Alignment, PatternFill
@@ -89,18 +119,17 @@ class PivotProcessor:
 
             col = 4
             for i, ym in enumerate(all_months):
-                ws.merge_cells(start_row=1, start_column=col, end_row=1, end_column=col + 2)
-                top_cell = ws.cell(row=1, column=col)
+                ws.merge_cells(start_row=1, start_column=col+1, end_row=1, end_column=col+2)
+                top_cell = ws.cell(row=1, column=col+1)
                 top_cell.value = ym
                 top_cell.alignment = Alignment(horizontal="center", vertical="center")
                 top_cell.font = Font(bold=True)
 
-                ws.cell(row=2, column=col).value = "预测"
-                ws.cell(row=2, column=col + 1).value = "订单"
-                ws.cell(row=2, column=col + 2).value = "出货"
+                ws.cell(row=2, column=col+1).value = "订单"
+                ws.cell(row=2, column=col+2).value = "出货"
 
                 fill = PatternFill(start_color=fill_colors[i % len(fill_colors)], end_color=fill_colors[i % len(fill_colors)], fill_type="solid")
-                for j in range(col, col + 3):
+                for j in range(col+1, col+3):
                     ws.cell(row=1, column=j).fill = fill
                     ws.cell(row=2, column=j).fill = fill
 
@@ -118,3 +147,4 @@ class PivotProcessor:
 
         output.seek(0)
         return main_df, output
+
