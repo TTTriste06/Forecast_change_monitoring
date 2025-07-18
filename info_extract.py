@@ -18,12 +18,26 @@ def extract_all_year_months(forecast_dfs: dict[str, pd.DataFrame], df_order, df_
     forecast_months = []
 
     # 1. 遍历所有预测表提取 “x月预测” 列
-    for df in forecast_dfs.values():
+    for file_name, df in forecast_dfs.items():
+        # 提取文件名中的生成年月（假设含YYYYMMDD）
+        match = re.search(r"(\d{4})(\d{2})\d{2}", file_name)
+        if match:
+            file_year = int(match.group(1))
+            file_month = int(match.group(2))
+        else:
+            file_year, file_month = 2025, 1  # 默认值，必要时可调整
+    
         for col in df.columns:
             match = month_pattern.match(str(col).strip())
             if match:
-                month = match.group(1).zfill(2)
-                forecast_months.append(f"{forecast_year}-{month}")
+                forecast_m = int(match.group(1))
+                # ✅ 跨年判断：预测月份 < 文件生成月份 → 跨年
+                if forecast_m < file_month:
+                    year = file_year + 1
+                else:
+                    year = file_year
+                month = str(forecast_m).zfill(2)
+                forecast_months.append(f"{year}-{month}")
 
     # 2. 提取 order 文件第 12 列的月份（假设为“订单日期”）
     try:
