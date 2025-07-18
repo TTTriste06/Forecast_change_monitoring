@@ -1,13 +1,11 @@
 import pandas as pd
 import streamlit as st
 from openpyxl import load_workbook
+from openpyxl.styles import Font
 from openpyxl.utils.dataframe import dataframe_to_rows
 from io import BytesIO
 import re
 from datetime import datetime
-from openpyxl.styles import Alignment, Font, PatternFill
-from openpyxl.utils import get_column_letter
-
 
 class PivotProcessor:
     def process(self, forecast_files, order_file, sales_file, mapping_file):
@@ -98,14 +96,17 @@ class PivotProcessor:
         main_df = fill_order_data(main_df, order_file, all_months)
         main_df = fill_sales_data(main_df, sales_file, all_months)
 
+        st.write(main_df)
+
         # ✅ 写入 Excel
         output = BytesIO()
         with pd.ExcelWriter(output, engine="openpyxl") as writer:
-            main_df.to_excel(writer, index=False, sheet_name="预测分析", startrow=2)
+            main_df.to_excel(writer, index=False, sheet_name="预测分析", startrow=1)
             ws = writer.sheets["预测分析"]
-            wb = writer.book
-
             highlight_by_detecting_column_headers(ws)
+
+            from openpyxl.styles import Alignment, PatternFill
+            from openpyxl.utils import get_column_letter
 
             for i, label in enumerate(["晶圆品名", "规格", "品名"], start=1):
                 ws.merge_cells(start_row=1, start_column=i, end_row=2, end_column=i)
@@ -114,51 +115,29 @@ class PivotProcessor:
                 cell.alignment = Alignment(horizontal="center", vertical="center")
                 cell.font = Font(bold=True)
 
-            from collections import defaultdict
-            fill_colors = ["FFF2CC", "D9EAD3", "D0E0E3", "F4CCCC", "EAD1DC", "CFE2F3", "FFE599"]
-            month_grouped_columns = defaultdict(lambda: {"预测": [], "订单": None, "出货": None})
+            fill_colors = [
+                "FFF2CC", "D9EAD3", "D0E0E3", "F4CCCC", "EAD1DC", "CFE2F3", "FFE599"
+            ]
 
-            # 分组所有列
-            for col in main_df.columns:
-                if re.match(r"\\d{4}-\\d{2}的预测（\\d{4}-\\d{2}生成）", str(col)):
-                    ym = col[:7]
-                    month_grouped_columns[ym]["预测"].append(col)
-                elif col.endswith("-订单") and re.match(r"\\d{4}-\\d{2}-订单", col):
-                    ym = col[:7]
-                    month_grouped_columns[ym]["订单"] = col
-                elif col.endswith("-出货") and re.match(r"\\d{4}-\\d{2}-出货", col):
-                    ym = col[:7]
-                    month_grouped_columns[ym]["出货"] = col
+            col = 4  # 从第4列开始（假设前面是“晶圆品名”、“规格”、“品名”）
 
-            col = 4
-            for i, ym in enumerate(sorted(month_grouped_columns)):
-                sub_cols = []
-                if month_grouped_columns[ym]["预测"]:
-                    sub_cols.extend(month_grouped_columns[ym]["预测"])
-                if month_grouped_columns[ym]["订单"]:
-                    sub_cols.append(month_grouped_columns[ym]["订单"])
-                if month_grouped_columns[ym]["出货"]:
-                    sub_cols.append(month_grouped_columns[ym]["出货"])
-
-                span = len(sub_cols)
-                if span == 0:
-                    continue
-
-                ws.merge_cells(start_row=1, start_column=col, end_row=1, end_column=col + span - 1)
+            for i, ym in enumerate(all_months):
+                ws.merge_cells(start_row=1, start_column=col, end_row=1, end_column=col + 1)
                 top_cell = ws.cell(row=1, column=col)
                 top_cell.value = ym
                 top_cell.alignment = Alignment(horizontal="center", vertical="center")
                 top_cell.font = Font(bold=True)
-
-                for j, sub_col in enumerate(sub_cols):
-                    ws.cell(row=2, column=col + j).value = sub_col
-                    ws.cell(row=2, column=col + j).alignment = Alignment(horizontal="center", vertical="center")
-                    fill = PatternFill(start_color=fill_colors[i % len(fill_colors)], end_color=fill_colors[i % len(fill_colors)], fill_type="solid")
-                    ws.cell(row=1, column=col + j).fill = fill
-                    ws.cell(row=2, column=col + j).fill = fill
-
-                col += span
-
+            
+                ws.cell(row=2, column=col).value = "订单"
+                ws.cell(row=2, column=col + 1).value = "出货"
+            
+                fill = PatternFill(start_color=fill_colors[i % len(fill_colors)], end_color=fill_colors[i % len(fill_colors)], fill_type="solid")
+                for j in range(col, col + 2):
+                    ws.cell(row=1, column=j).fill = fill
+                    ws.cell(row=2, column=j).fill = fill
+            
+                col += 2  # ✅ 修正这里：每轮推进2列
+            
             for col_idx, column_cells in enumerate(ws.columns, 1):
                 max_length = 0
                 for cell in column_cells:
