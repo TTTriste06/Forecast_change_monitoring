@@ -121,7 +121,7 @@ class PivotProcessor:
         with pd.ExcelWriter(output, engine="openpyxl") as writer:
             main_df.to_excel(writer, index=False, sheet_name="预测分析", startrow=1)
             ws = writer.sheets["预测分析"]
-            merge_monthly_group_headers(ws)
+            merge_monthly_group_headers(ws, main_df)
 
             from openpyxl.styles import Alignment, PatternFill
             from openpyxl.utils import get_column_letter
