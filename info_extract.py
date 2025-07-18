@@ -22,14 +22,8 @@ def extract_all_year_months(forecast_dfs: dict[str, pd.DataFrame], df_order, df_
         for col in df.columns:
             match = month_pattern.match(str(col).strip())
             if match:
-                forecast_m = int(match.group(1))
-                # ✅ 跨年判断：预测月份 < 文件生成月份 → 跨年
-                if forecast_m < file_month:
-                    year = file_year + 1
-                else:
-                    year = file_year
-                month = str(forecast_m).zfill(2)
-                forecast_months.append(f"{year}-{month}")
+                month = match.group(1).zfill(2)
+                forecast_months.append(f"{forecast_year}-{month}")
 
     # 2. 提取 order 文件第 12 列的月份（假设为“订单日期”）
     try:
