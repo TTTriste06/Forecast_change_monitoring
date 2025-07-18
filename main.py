@@ -23,11 +23,7 @@ def main():
 
             processor = PivotProcessor()
             df_result, excel_output = processor.process(forecast_files, order_df, sales_df, mapping_df)
-
-            # ✅ 清洗所有预测/订单/出货列为数值，避免后续崩溃
-            num_cols = [col for col in df_result.columns if any(kw in col for kw in ["预测", "订单", "出货"])]
-            df_result[num_cols] = df_result[num_cols].apply(pd.to_numeric, errors="coerce").fillna(0)
-
+            
             st.success("✅ 主计划生成成功！")
             st.dataframe(df_result, use_container_width=True)
 
