@@ -5,6 +5,7 @@ from io import BytesIO
 from ui import get_uploaded_files
 from pivot_processor import PivotProcessor
 from github_utils import load_file_with_github_fallback
+import matplotlib.pyplot as plt
 
 def main():
     st.set_page_config(page_title="预测分析主计划工具", layout="wide")
@@ -31,8 +32,6 @@ def main():
         )
 
         # ✅ 图表可视化部分
-        import matplotlib.pyplot as plt
-
         st.subheader("📈 可视化分析图表")
         product_list = df_result["品名"].dropna().unique().tolist()
         selected_product = st.selectbox("选择品名进行图表展示", product_list)
