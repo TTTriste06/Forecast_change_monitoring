@@ -12,7 +12,7 @@ class PivotProcessor:
         from mapping_utils import apply_mapping_and_merge, apply_extended_substitute_mapping, split_mapping_data
         from info_extract import extract_all_year_months, fill_order_data, fill_sales_data, highlight_by_detecting_column_headers
         from name_utils import build_main_df
-        from forecast_utils import load_forecast_files, reorder_columns_by_month
+        from forecast_utils import load_forecast_files, reorder_columns_by_month, merge_monthly_group_headers
 
         # ✅ 加载原始预测文件
         forecast_dfs = load_forecast_files(forecast_files)
@@ -121,7 +121,7 @@ class PivotProcessor:
         with pd.ExcelWriter(output, engine="openpyxl") as writer:
             main_df.to_excel(writer, index=False, sheet_name="预测分析", startrow=1)
             ws = writer.sheets["预测分析"]
-            # highlight_by_detecting_column_headers(ws)
+            merge_monthly_group_headers(ws)
 
             from openpyxl.styles import Alignment, PatternFill
             from openpyxl.utils import get_column_letter
