@@ -4,6 +4,41 @@ import re
 from datetime import datetime
 from io import BytesIO
 
+# ✅ 对列进行排序：按月份分组排序，预测/订单/出货顺序
+def reorder_columns_by_month(main_df: pd.DataFrame) -> pd.DataFrame:
+    fixed_cols = ["晶圆品名", "规格", "品名"]
+    pattern = re.compile(r"(\d{4}-\d{2})")
+
+    # 收集所有字段按年月归类
+    month_field_map = {}
+    for col in main_df.columns:
+        match = pattern.search(str(col))
+        if match:
+            ym = match.group(1)
+            month_field_map.setdefault(ym, []).append(col)
+
+    # 对每月的列再按关键词排序：预测 < 订单 < 出货
+    def sort_key(col):
+        if "预测" in col:
+            return 0
+        elif "订单" in col:
+            return 1
+        elif "出货" in col:
+            return 2
+        else:
+            return 3
+
+    sorted_month_cols = []
+    for ym in sorted(month_field_map.keys()):
+        sorted_cols = sorted(month_field_map[ym], key=sort_key)
+        sorted_month_cols.extend(sorted_cols)
+
+    final_cols = fixed_cols + sorted_month_cols
+    return main_df[[col for col in final_cols if col in main_df.columns]]
+
+main_df = reorder_columns_by_month(main_df)
+
+
 def extract_forecast_generation_date(self, filename: str) -> str:
     """从文件名中提取生成日期，返回格式为 yyyy-mm"""
     match = re.search(r"_(\d{8})", filename)
