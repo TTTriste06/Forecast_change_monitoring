@@ -113,7 +113,10 @@ class PivotProcessor:
         main_df = reorder_columns_by_month(main_df)
         main_df = drop_order_shipping_without_forecast(main_df)
 
-
+        # 删除所有数值列（除前3列）都为 0 或空的行
+        value_cols = main_df.columns[3:]  # 假设前三列为识别字段
+        main_df = main_df[~(main_df[value_cols].fillna(0) == 0).all(axis=1)]
+        
 
 
         st.write(main_df)
