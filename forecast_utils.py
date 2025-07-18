@@ -8,6 +8,42 @@ from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.worksheet import Worksheet
 from openpyxl.styles import Alignment, Font
 
+from openpyxl.styles import PatternFill
+
+def merge_and_color_monthly_group_headers(ws: Worksheet, df: pd.DataFrame, start_row: int = 1):
+    """
+    合并并着色同一个月份的字段（如“预测/订单/出货”）标题行。
+    """
+    pattern = re.compile(r"(\d{4}-\d{2})")
+    col_groups = {}  # {月份: [列索引]}
+    
+    for idx, col in enumerate(df.columns, start=1):  # openpyxl 列从 1 开始
+        match = pattern.search(str(col))
+        if match:
+            month = match.group(1)
+            col_groups.setdefault(month, []).append(idx)
+
+    fill_colors = [
+        "FFF2CC", "D9EAD3", "D0E0E3", "F4CCCC", "EAD1DC", "CFE2F3", "FFE599", "E6B8AF"
+    ]
+
+    for i, (month, col_indexes) in enumerate(sorted(col_groups.items())):
+        start_col = col_indexes[0]
+        end_col = col_indexes[-1]
+        cell = ws.cell(row=start_row, column=start_col)
+        ws.merge_cells(start_row=start_row, start_column=start_col, end_row=start_row, end_column=end_col)
+        cell.value = month
+        cell.alignment = Alignment(horizontal="center", vertical="center")
+        cell.font = Font(bold=True)
+
+        fill = PatternFill(start_color=fill_colors[i % len(fill_colors)],
+                           end_color=fill_colors[i % len(fill_colors)],
+                           fill_type="solid")
+        for col in col_indexes:
+            ws.cell(row=start_row, column=col).fill = fill
+            ws.cell(row=start_row + 1, column=col).fill = fill
+
+
 def merge_monthly_group_headers(ws: Worksheet, df: pd.DataFrame, start_row: int = 1):
     """
     将同一月份的“预测/订单/出货”等字段在 Excel 中合并单元格并写入“yyyy-mm”。
