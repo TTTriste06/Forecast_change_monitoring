@@ -8,8 +8,8 @@ def get_uploaded_files():
     st.subheader("📈 上传预测数据")
     forecast_files = st.file_uploader("上传预测数据（支持多个文件）", type="xlsx", key="forecast", accept_multiple_files=True)
 
-    st.subheader("📦 上传未交订单")
-    order_file = st.file_uploader("上传未交订单(Sheet)", type="xlsx", key="order")
+    st.subheader("📦 上传总订单")
+    order_file = st.file_uploader("上传总订单(Sheet)", type="xlsx", key="order")
 
     st.subheader("🚚 上传出货明细")
     sales_file = st.file_uploader("上传出货明细(原表)", type="xlsx", key="sales")
