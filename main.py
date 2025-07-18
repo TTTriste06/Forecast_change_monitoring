@@ -73,7 +73,9 @@ def main():
             ax.bar([i + bar_width/2 for i in x], ship_data, width=bar_width, label="出货", color="lightgreen")
 
             for gen_date, y_pairs in forecast_lines.items():
-                y_sorted = [y for _, y in sorted(y_pairs)]
+                # 构造成完整的 {month: value} 映射
+                month_value_map = {month: value for month, value in y_pairs}
+                y_sorted = [month_value_map.get(month, 0) for month in months]
                 ax.plot(x, y_sorted, marker="o", label=f"预测（{gen_date}）")
 
             ax.set_xticks(x)
