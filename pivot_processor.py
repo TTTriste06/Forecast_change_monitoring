@@ -12,7 +12,7 @@ class PivotProcessor:
         from mapping_utils import apply_mapping_and_merge, apply_extended_substitute_mapping, split_mapping_data
         from info_extract import extract_all_year_months, fill_order_data, fill_sales_data, highlight_by_detecting_column_headers
         from name_utils import build_main_df
-        from forecast_utils import load_forecast_files
+        from forecast_utils import load_forecast_files, reorder_columns_by_month
 
         # ✅ 加载原始预测文件
         forecast_dfs = load_forecast_files(forecast_files)
@@ -95,6 +95,10 @@ class PivotProcessor:
         main_df = fill_forecast_data(main_df, forecast_dfs)
         main_df = fill_order_data(main_df, order_file, all_months)
         main_df = fill_sales_data(main_df, sales_file, all_months)
+
+        main_df = reorder_columns_by_month(main_df)
+
+
 
         st.write(main_df)
 
