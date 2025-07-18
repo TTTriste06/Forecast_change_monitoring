@@ -18,7 +18,7 @@ def extract_all_year_months(forecast_dfs: dict[str, pd.DataFrame], df_order, df_
     forecast_months = []
 
     # 1. 遍历所有预测表提取 “x月预测” 列
-    forecast_dfs.values():
+    for df in forecast_dfs.values():
         for col in df.columns:
             match = month_pattern.match(str(col).strip())
             if match:
