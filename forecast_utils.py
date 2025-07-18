@@ -10,6 +10,33 @@ from openpyxl.styles import Alignment, Font
 
 from openpyxl.styles import PatternFill
 
+def drop_order_shipping_without_forecast(main_df: pd.DataFrame) -> pd.DataFrame:
+    """
+    删除那些没有对应预测列的月份的“订单”列和“出货”列。
+    """
+    # 提取所有有预测的月份
+    forecast_pattern = re.compile(r"^(\d{4}-\d{2})的预测")
+    forecast_months = set()
+
+    for col in main_df.columns:
+        match = forecast_pattern.match(str(col))
+        if match:
+            forecast_months.add(match.group(1))
+
+    # 找出需要删除的“订单”和“出货”列
+    drop_cols = []
+    order_ship_pattern = re.compile(r"^(\d{4}-\d{2})-(订单|出货)$")
+
+    for col in main_df.columns:
+        match = order_ship_pattern.match(str(col))
+        if match:
+            month = match.group(1)
+            if month not in forecast_months:
+                drop_cols.append(col)
+
+    return main_df.drop(columns=drop_cols)
+
+
 def merge_and_color_monthly_group_headers(ws: Worksheet, df: pd.DataFrame, start_row: int = 1):
     """
     合并并着色同一个月份的字段（如“预测/订单/出货”）标题行。
