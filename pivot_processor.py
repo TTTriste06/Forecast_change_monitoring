@@ -66,15 +66,29 @@ class PivotProcessor:
             return 0
 
         def standardize_column_name(forecast_col: str, file_date: str) -> str:
+            """
+            将原始预测列名（如“6月预测”）标准化为“yyyy-mm的预测（yyyy-mm生成）”，处理跨年。
+            """
             month_match = re.match(r"^(\d{1,2})月预测$", forecast_col.strip())
             alt_match = re.match(r"^(\d{1,2})月预测\d*$", forecast_col.strip())
             if month_match or alt_match:
-                month = (month_match or alt_match).group(1).zfill(2)
+                forecast_month = int((month_match or alt_match).group(1))
             else:
-                return f"{file_date}-{forecast_col.strip()}"
-            file_year = file_date[:4]
-            file_month = file_date[4:6]
-            return f"{file_year}-{month}的预测（{file_year}-{file_month}生成）"
+                return f"{file_date}-{forecast_col.strip()}"  # fallback: 原样列名
+        
+            file_year = int(file_date[:4])
+            file_month = int(file_date[4:6])
+            
+            # ✅ 处理跨年：如果预测月份小于生成月份，则年份加一
+            if forecast_month < file_month:
+                forecast_year = file_year + 1
+            else:
+                forecast_year = file_year
+        
+            forecast_month_str = str(forecast_month).zfill(2)
+            file_month_str = str(file_month).zfill(2)
+            return f"{forecast_year}-{forecast_month_str}的预测（{file_year}-{file_month_str}生成）"
+
 
         def fill_forecast_data(main_df: pd.DataFrame, forecast_dfs: dict[str, pd.DataFrame]) -> pd.DataFrame:
             for file_name, df in forecast_dfs.items():
