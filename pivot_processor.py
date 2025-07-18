@@ -111,6 +111,8 @@ class PivotProcessor:
         main_df = fill_sales_data(main_df, sales_file, all_months)
 
         main_df = reorder_columns_by_month(main_df)
+        main_df = drop_order_shipping_without_forecast(main_df)
+
 
 
 
