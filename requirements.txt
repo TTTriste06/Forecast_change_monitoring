@@ -3,3 +3,4 @@ pandas
 openpyxl
 requests
 tornado==6.4.2
+matplotlib
