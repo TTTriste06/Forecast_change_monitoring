@@ -36,8 +36,6 @@ def reorder_columns_by_month(main_df: pd.DataFrame) -> pd.DataFrame:
     final_cols = fixed_cols + sorted_month_cols
     return main_df[[col for col in final_cols if col in main_df.columns]]
 
-main_df = reorder_columns_by_month(main_df)
-
 
 def extract_forecast_generation_date(self, filename: str) -> str:
     """从文件名中提取生成日期，返回格式为 yyyy-mm"""
