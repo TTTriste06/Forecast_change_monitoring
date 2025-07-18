@@ -4,6 +4,39 @@ import re
 from datetime import datetime
 from io import BytesIO
 
+from openpyxl.utils import get_column_letter
+from openpyxl.worksheet.worksheet import Worksheet
+from openpyxl.styles import Alignment, Font
+
+def merge_monthly_group_headers(ws: Worksheet, df: pd.DataFrame, start_row: int = 1):
+    """
+    将同一月份的“预测/订单/出货”等字段在 Excel 中合并单元格并写入“yyyy-mm”。
+    
+    参数：
+        ws: openpyxl 的 worksheet 对象
+        df: DataFrame，用于获取列顺序
+        start_row: 起始行（默认为 1）
+    """
+    pattern = re.compile(r"(\d{4}-\d{2})")
+    col_groups = {}  # {月份: [列索引]}
+    
+    for idx, col in enumerate(df.columns, start=1):  # openpyxl 列从 1 开始
+        match = pattern.search(str(col))
+        if match:
+            month = match.group(1)
+            col_groups.setdefault(month, []).append(idx)
+
+    for month, col_indexes in col_groups.items():
+        if len(col_indexes) >= 2:
+            start_col = col_indexes[0]
+            end_col = col_indexes[-1]
+            cell = ws.cell(row=start_row, column=start_col)
+            ws.merge_cells(start_row=start_row, start_column=start_col, end_row=start_row, end_column=end_col)
+            cell.value = month
+            cell.alignment = Alignment(horizontal="center", vertical="center")
+            cell.font = Font(bold=True)
+
+
 # ✅ 对列进行排序：按月份分组排序，预测/订单/出货顺序
 def reorder_columns_by_month(main_df: pd.DataFrame) -> pd.DataFrame:
     fixed_cols = ["晶圆品名", "规格", "品名"]
