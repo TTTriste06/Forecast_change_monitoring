@@ -115,5 +115,6 @@ def build_main_df(forecast_dfs: dict[str, pd.DataFrame], order_df, sales_df, map
 
     for df in forecast_dfs.values():
         main_df = try_fill(main_df, df.assign(晶圆品名=""), {"生产料号": "品名", "产品型号": "规格"})
+    main_df = main_df.drop_duplicates(subset=["晶圆品名", "规格", "品名"])
 
     return main_df[["晶圆品名", "规格", "品名"]]
