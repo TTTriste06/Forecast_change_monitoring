@@ -140,44 +140,60 @@ class PivotProcessor:
                         pass
                 ws.column_dimensions[get_column_letter(col_idx)].width = max_length + 10
 
-            # ✅ 构建“月度展开”sheet：每行 = 每个品名 + 每月整块信息
-            monthly_rows = []
+                        from openpyxl.utils import get_column_letter
 
-            # 提取品名识别列
+            # ✅ 构建“月度展开”sheet（预测集中 + 列宽调整）
+            monthly_rows = []
             name_fields = ["晶圆品名", "规格", "品名"]
             id_cols = [col for col in main_df.columns if col in name_fields]
 
-            # 分组预测、订单、出货列
-            month_set = set()
-            forecast_group = {}
+            # 收集所有预测列（提取年月、生成时间）
+            pattern_f = re.compile(r"(\d{4}-\d{2})的预测（(\d{4}-\d{2})生成）")
+            forecast_columns = []
             for col in main_df.columns:
-                forecast_match = re.match(r"(\d{4}-\d{2})的预测（(\d{4}-\d{2})生成）", col)
-                if forecast_match:
-                    ym, gen = forecast_match.groups()
-                    month_set.add(ym)
-                    forecast_group.setdefault(ym, []).append((gen, col))
+                match = pattern_f.match(col)
+                if match:
+                    forecast_columns.append((match.group(1), match.group(2), col))  # (月份, 生成时间, 列名)
 
-            for month in sorted(month_set):
-                forecast_cols = sorted(forecast_group.get(month, []))  # 按生成时间排序
-                order_col = f"{month}-订单"
-                ship_col = f"{month}-出货"
+            # 按月份、生成时间排序
+            forecast_columns = sorted(forecast_columns)
+
+            # 按月份收集所有订单、出货列
+            months = sorted(set(m for m, _, _ in forecast_columns))
+            for m in months:
+                forecast_this_month = [(gen, col) for fm, gen, col in forecast_columns if fm == m]
+                order_col = f"{m}-订单"
+                ship_col = f"{m}-出货"
 
                 for _, row in main_df.iterrows():
                     row_dict = {col: row.get(col, "") for col in id_cols}
-                    row_dict["月份"] = month
+                    row_dict["月份"] = m
 
-                    for gen, fcol in forecast_cols:
-                        row_dict[f"预测（{gen}生成）"] = row.get(fcol, "")
+                    # 添加所有预测列（按生成时间）
+                    for gen, col in forecast_this_month:
+                        row_dict[f"预测（{gen}生成）"] = row.get(col, "")
 
                     row_dict["订单"] = row.get(order_col, "")
                     row_dict["出货"] = row.get(ship_col, "")
-
                     monthly_rows.append(row_dict)
 
+            # 转换为 DataFrame
             df_wide = pd.DataFrame(monthly_rows)
-            df_wide = df_wide[[*id_cols, "月份"] + [col for col in df_wide.columns if col not in id_cols + ["月份"]]]
-            df_wide.to_excel(writer, sheet_name="月度展开", index=False)
 
+            # 列顺序整理
+            forecast_headers = [col for col in df_wide.columns if "预测（" in col]
+            final_order = [*id_cols, "月份"] + forecast_headers + ["订单", "出货"]
+            df_wide = df_wide[final_order]
+
+            # 写入 Excel
+            df_wide.to_excel(writer, sheet_name="月度展开", index=False)
+            ws = writer.sheets["月度展开"]
+
+            # ✅ 自动列宽
+            for col_idx, column_cells in enumerate(ws.columns, 1):
+                max_len = max((len(str(cell.value)) for cell in column_cells if cell.value), default=0)
+                col_letter = get_column_letter(col_idx)
+                ws.column_dimensions[col_letter].width = max_len + 4
 
         output.seek(0)
         return main_df, output
