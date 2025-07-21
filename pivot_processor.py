@@ -129,10 +129,7 @@ class PivotProcessor:
             ws = writer.sheets["预测分析"]
             merge_monthly_group_headers(ws, main_df)
             merge_and_color_monthly_group_headers(ws, main_df)
-        
-            
 
-            
             for col_idx, column_cells in enumerate(ws.columns, 1):
                 max_length = 0
                 for cell in column_cells:
@@ -142,5 +139,37 @@ class PivotProcessor:
                     except:
                         pass
                 ws.column_dimensions[get_column_letter(col_idx)].width = max_length + 10
+
+            # ✅ 生成“月度预测明细”长表结构
+            long_records = []
+            pattern = re.compile(r"(\d{4}-\d{2})的预测（(\d{4}-\d{2})生成）")
+            for col in main_df.columns:
+                match = pattern.match(col)
+                if match:
+                    forecast_month, file_month = match.groups()
+                    for idx, row in main_df.iterrows():
+                        long_records.append({
+                            "品名": row["品名"],
+                            "月份": forecast_month,
+                            "生成时间": file_month,
+                            "类型": "预测",
+                            "数值": row[col]
+                        })
+                elif col.endswith("订单") or col.endswith("出货"):
+                    ym = col[:-2]
+                    kind = col[-2:]
+                    for idx, row in main_df.iterrows():
+                        long_records.append({
+                            "品名": row["品名"],
+                            "月份": ym,
+                            "生成时间": "",  # 订单/出货没有生成时间
+                            "类型": kind,
+                            "数值": row[col]
+                        })
+
+            df_long = pd.DataFrame(long_records)
+            df_long = df_long[["品名", "月份", "生成时间", "类型", "数值"]]  # 控制列顺序
+            df_long.to_excel(writer, index=False, sheet_name="预测明细")
+
         output.seek(0)
         return main_df, output
