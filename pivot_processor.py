@@ -129,7 +129,7 @@ class PivotProcessor:
             merge_monthly_group_headers(ws, main_df)
             merge_and_color_monthly_group_headers(ws, main_df)
         
-            write_all_forecast_sheets(writer.book, df_main)
+            write_all_forecast_sheets(writer.book, main_df)
 
             
             for col_idx, column_cells in enumerate(ws.columns, 1):
