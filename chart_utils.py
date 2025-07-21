@@ -1,3 +1,5 @@
+import pandas as pd
+
 def write_grouped_forecast_sheet(wb, df: pd.DataFrame, sheet_name="预测展示"):
 
     from openpyxl.worksheet.worksheet import Worksheet
