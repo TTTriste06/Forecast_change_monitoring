@@ -140,36 +140,43 @@ class PivotProcessor:
                         pass
                 ws.column_dimensions[get_column_letter(col_idx)].width = max_length + 10
 
-            # ✅ 生成“月度预测明细”长表结构
-            long_records = []
-            pattern = re.compile(r"(\d{4}-\d{2})的预测（(\d{4}-\d{2})生成）")
+            # ✅ 新增“月度展开”sheet
+            month_blocks = []
+            pattern_forecast = re.compile(r"(\d{4}-\d{2})的预测（(\d{4}-\d{2})生成）")
+            pattern_order = re.compile(r"(\d{4}-\d{2})-订单")
+            pattern_ship = re.compile(r"(\d{4}-\d{2})-出货")
+
             for col in main_df.columns:
-                match = pattern.match(col)
-                if match:
-                    forecast_month, file_month = match.groups()
-                    for idx, row in main_df.iterrows():
-                        long_records.append({
-                            "品名": row["品名"],
-                            "月份": forecast_month,
-                            "生成时间": file_month,
-                            "类型": "预测",
+                for idx, row in main_df.iterrows():
+                    品名 = row.get("品名") or row.get("晶圆品名") or row.get(main_df.columns[0])  # 兼容不同表头
+                    if pattern_forecast.match(col):
+                        ym, gen = pattern_forecast.match(col).groups()
+                        month_blocks.append({
+                            "品名": 品名,
+                            "月份": ym,
+                            "类型": f"预测（{gen}生成）",
                             "数值": row[col]
                         })
-                elif col.endswith("订单") or col.endswith("出货"):
-                    ym = col[:-2]
-                    kind = col[-2:]
-                    for idx, row in main_df.iterrows():
-                        long_records.append({
-                            "品名": row["品名"],
+                    elif pattern_order.match(col):
+                        ym = pattern_order.match(col).group(1)
+                        month_blocks.append({
+                            "品名": 品名,
                             "月份": ym,
-                            "生成时间": "",  # 订单/出货没有生成时间
-                            "类型": kind,
+                            "类型": "订单",
+                            "数值": row[col]
+                        })
+                    elif pattern_ship.match(col):
+                        ym = pattern_ship.match(col).group(1)
+                        month_blocks.append({
+                            "品名": 品名,
+                            "月份": ym,
+                            "类型": "出货",
                             "数值": row[col]
                         })
 
-            df_long = pd.DataFrame(long_records)
-            df_long = df_long[["品名", "月份", "生成时间", "类型", "数值"]]  # 控制列顺序
-            df_long.to_excel(writer, index=False, sheet_name="预测明细")
+            df_unpivoted = pd.DataFrame(month_blocks)
+            df_unpivoted = df_unpivoted[["品名", "月份", "类型", "数值"]].sort_values(by=["月份", "品名", "类型"])
+            df_unpivoted.to_excel(writer, sheet_name="月度展开", index=False)
 
         output.seek(0)
         return main_df, output
