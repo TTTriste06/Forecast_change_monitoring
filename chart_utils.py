@@ -2,6 +2,7 @@ import pandas as pd
 from openpyxl.utils.dataframe import dataframe_to_rows
 from openpyxl.styles import Alignment, Font
 from openpyxl.utils import get_column_letter
+import pyarrow as pa
 import re
 
 def write_all_forecast_sheets(wb, df_main: pd.DataFrame):
