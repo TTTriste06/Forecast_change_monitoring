@@ -67,7 +67,8 @@ def write_all_forecast_sheets(wb, df_main: pd.DataFrame):
     # ✅ 写入三个 Sheet
     from forecast_utils import merge_monthly_group_headers, merge_and_color_monthly_group_headers
     ws = wb.create_sheet(title="预测展示")
-    df_main.to_excel(ws, index=False, startrow=1)
+    for r in dataframe_to_rows(df_main, index=False, header=True):
+        ws.append(r)
     merge_monthly_group_headers(ws, df_main)
     merge_and_color_monthly_group_headers(ws, df_main)
 
