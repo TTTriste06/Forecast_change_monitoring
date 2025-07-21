@@ -80,45 +80,45 @@ def write_grouped_forecast_sheet(wb, df: pd.DataFrame, sheet_name="预测展示"
 
 
 
-def write_forecast_expanded_sheet(wb, df: pd.DataFrame, sheet_name="预测展开"):
-    from openpyxl.utils.dataframe import dataframe_to_rows
+def write_forecast_expanded_wide_sheet(wb, df: pd.DataFrame, sheet_name="预测展开（横向）"):
+    """
+    将预测展开表写成横向格式：
+    品名 + 预测月份 + 每个生成月份下的 预测值 + 订单量 + 出货量。
+    """
     from openpyxl.styles import Alignment, Font
-    import re
+    from openpyxl.utils.dataframe import dataframe_to_rows
+    from openpyxl.utils import get_column_letter
 
-    forecast_cols = [col for col in df.columns if "预测" in col and "生成" in col]
-    id_cols = ["品名"]
+    df = df.copy()
+    df["预测月份"] = df["预测月份"].astype(str)
+    df["生成月份"] = df["生成月份"].astype(str)
 
-    records = []
-    for _, row in df.iterrows():
-        base = {col: row[col] for col in id_cols}
-        for col in forecast_cols:
-            match = re.match(r"(\d{4}-\d{2})的预测（(\d{4}-\d{2})生成）", col)
-            if not match:
-                continue
-            forecast_month, generated_month = match.groups()
-            forecast_value = row[col]
-            records.append({
-                "品名": base["品名"],
-                "预测月份": forecast_month,
-                "生成月份": generated_month,
-                "预测值": forecast_value,
-                "订单量": row.get(f"{forecast_month}-订单", None),
-                "出货量": row.get(f"{forecast_month}-出货", None)
-            })
+    # 所有生成月份
+    gen_months = sorted(df["生成月份"].unique())
+    group_fields = ["预测值", "订单量", "出货量"]
 
-    df_out = pd.DataFrame(records)
-    df_out = df_out[["品名", "预测月份", "生成月份", "预测值", "订单量", "出货量"]]
+    # pivot → 横向展开
+    wide = df.pivot_table(
+        index=["品名", "预测月份"],
+        columns="生成月份",
+        values=group_fields,
+        aggfunc="first"
+    )
 
+    wide.columns = [f"{col[1]}_{col[0]}" for col in wide.columns]
+    wide.reset_index(inplace=True)
+
+    # 写入 Excel
     ws = wb.create_sheet(title=sheet_name)
-    for r in dataframe_to_rows(df_out, index=False, header=True):
+    for r in dataframe_to_rows(wide, index=False, header=True):
         ws.append(r)
 
+    # 美化 header
     for cell in ws[1]:
         cell.alignment = Alignment(horizontal="center", vertical="center")
         cell.font = Font(bold=True)
 
-    from openpyxl.utils import get_column_letter
+    # 设置列宽
     for i, col_cells in enumerate(ws.columns, 1):
         max_len = max(len(str(cell.value)) if cell.value else 0 for cell in col_cells)
         ws.column_dimensions[get_column_letter(i)].width = max_len + 4
-
