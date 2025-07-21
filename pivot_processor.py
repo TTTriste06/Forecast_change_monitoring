@@ -6,6 +6,7 @@ from openpyxl.utils.dataframe import dataframe_to_rows
 from io import BytesIO
 import re
 from datetime import datetime
+from openpyxl.utils import get_column_letter
 
 class PivotProcessor:
     def process(self, forecast_files, order_file, sales_file, mapping_file):
