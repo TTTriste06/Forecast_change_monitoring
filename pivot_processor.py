@@ -120,8 +120,6 @@ class PivotProcessor:
         value_cols = main_df.columns[3:]  # 假设前三列为识别字段
         main_df = main_df[~(main_df[value_cols].fillna(0) == 0).all(axis=1)]
 
-        st.write(main_df)
-
         # ✅ 写入 Excel
         output = BytesIO()
         with pd.ExcelWriter(output, engine="openpyxl") as writer:
