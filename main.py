@@ -60,7 +60,7 @@ def main():
 
     if st.button("开始处理") and forecast_files and order_file and sales_file and mapping_file:
         try:
-            forecast_dfs = {f.name: pd.read_excel(f) for f in forecast_files}
+            main_df, output = processor.process(forecast_files, order_df, sales_df, mapping_df)
             order_df = pd.read_excel(order_file)
             sales_df = pd.read_excel(sales_file)
             mapping_df = pd.read_excel(mapping_file)
