@@ -13,7 +13,7 @@ class PivotProcessor:
         from info_extract import extract_all_year_months, fill_order_data, fill_sales_data, highlight_by_detecting_column_headers
         from name_utils import build_main_df
         from forecast_utils import load_forecast_files, reorder_columns_by_month, merge_monthly_group_headers, merge_and_color_monthly_group_headers, drop_order_shipping_without_forecast
-        from chart_utils import write_grouped_forecast_sheet
+        from chart_utils import write_grouped_forecast_sheet, write_forecast_expanded_sheet
 
         # ✅ 加载原始预测文件
         forecast_dfs = load_forecast_files(forecast_files)
@@ -128,8 +128,11 @@ class PivotProcessor:
             merge_monthly_group_headers(ws, main_df)
             merge_and_color_monthly_group_headers(ws, main_df)
 
-            wb = writer.book
-            write_grouped_forecast_sheet(wb, main_df, sheet_name="预测展示")
+            # 输出截图样式
+            write_grouped_forecast_sheet(writer.book, main_df, sheet_name="预测展示")
+        
+            # 输出展开表
+            write_forecast_expanded_sheet(writer.book, main_df, sheet_name="预测展开")
 
             from openpyxl.styles import Alignment, PatternFill
             from openpyxl.utils import get_column_letter
