@@ -309,8 +309,8 @@ def load_forecast_files(files: dict) -> dict[str, pd.DataFrame]:
             if df.shape[1] >= 2:
                 df.columns.values[1] = "品名"
 
-            st.write(f"📄 读取成功：{file_name}（使用 sheet：{longest_sheet}，header 行：第 {header_row+1} 行）")
-            st.dataframe(df)
+            # st.write(f"📄 读取成功：{file_name}（使用 sheet：{longest_sheet}，header 行：第 {header_row+1} 行）")
+            # st.dataframe(df)
 
             result[file_name] = df
 
