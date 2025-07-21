@@ -1,6 +1,10 @@
+# pages/2_📈图表查看.py
 import streamlit as st
-import re
 import matplotlib.pyplot as plt
+import re
+
+st.set_page_config(page_title="图表查看", layout="wide")
+st.title("📈 品名预测趋势图")
 
 def plot_combined_chart(df, product_name):
     row = df[df["品名"] == product_name]
@@ -45,21 +49,13 @@ def plot_combined_chart(df, product_name):
 
     st.pyplot(fig)
 
-
-def main():
-    st.set_page_config(page_title="图表分析", layout="wide")
-    st.title("📈 品名预测趋势图")
-
-    if "df_result" not in st.session_state:
-        st.warning("请先前往主页面生成主计划数据。")
-        return
-
+# 主逻辑
+if "df_result" not in st.session_state:
+    st.warning("⚠️ 请先在主页上传文件并生成主计划")
+else:
     df_result = st.session_state["df_result"]
     st.caption(f"🕒 数据更新时间：{st.session_state.get('last_updated', '未知')}")
 
     product_list = df_result["品名"].dropna().unique().tolist()
     selected = st.selectbox("请选择品名", product_list)
     plot_combined_chart(df_result, selected)
-
-if __name__ == "__main__":
-    main()
