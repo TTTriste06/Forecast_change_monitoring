@@ -129,41 +129,12 @@ class PivotProcessor:
             merge_and_color_monthly_group_headers(ws, main_df)
         
             # 输出展开表
-            write_forecast_expanded_wide_sheet(writer.book, main_df, sheet_name="预测展开")
-
-            from openpyxl.styles import Alignment, PatternFill
-            from openpyxl.utils import get_column_letter
-            """
-            for i, label in enumerate(["晶圆品名", "规格", "品名"], start=1):
-                ws.merge_cells(start_row=1, start_column=i, end_row=2, end_column=i)
-                cell = ws.cell(row=1, column=i)
-                cell.value = label
-                cell.alignment = Alignment(horizontal="center", vertical="center")
-                cell.font = Font(bold=True)
-
-            fill_colors = [
-                "FFF2CC", "D9EAD3", "D0E0E3", "F4CCCC", "EAD1DC", "CFE2F3", "FFE599"
-            ]
-
-            col = 4  # 从第4列开始（假设前面是“晶圆品名”、“规格”、“品名”）
-
-            for i, ym in enumerate(all_months):
-                ws.merge_cells(start_row=1, start_column=col, end_row=1, end_column=col + 1)
-                top_cell = ws.cell(row=1, column=col)
-                top_cell.value = ym
-                top_cell.alignment = Alignment(horizontal="center", vertical="center")
-                top_cell.font = Font(bold=True)
+            df_out = build_forecast_long_table(main_df)
             
-                ws.cell(row=2, column=col).value = "订单"
-                ws.cell(row=2, column=col + 1).value = "出货"
-            
-                fill = PatternFill(start_color=fill_colors[i % len(fill_colors)], end_color=fill_colors[i % len(fill_colors)], fill_type="solid")
-                for j in range(col, col + 2):
-                    ws.cell(row=1, column=j).fill = fill
-                    ws.cell(row=2, column=j).fill = fill
-            
-                col += 2  # ✅ 修正这里：每轮推进2列
-            """
+            write_grouped_forecast_sheet(writer.book, main_df, sheet_name="预测展示")
+            write_forecast_expanded_sheet(writer.book, df_out, sheet_name="预测展开")
+            write_forecast_expanded_wide_sheet(writer.book, df_out, sheet_name="预测展开（横向）")
+
             
             for col_idx, column_cells in enumerate(ws.columns, 1):
                 max_length = 0
