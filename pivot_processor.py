@@ -127,9 +127,6 @@ class PivotProcessor:
             ws = writer.sheets["预测分析"]
             merge_monthly_group_headers(ws, main_df)
             merge_and_color_monthly_group_headers(ws, main_df)
-
-            # 输出截图样式
-            write_grouped_forecast_sheet(writer.book, main_df, sheet_name="预测展示")
         
             # 输出展开表
             write_forecast_expanded_sheet(writer.book, main_df, sheet_name="预测展开")
