@@ -7,7 +7,7 @@ import re
 
 def write_all_forecast_sheets(wb, df_main: pd.DataFrame):
     """
-    一键生成所有预测分析相关 Sheet：预测展示、预测展开、预测展开（横向）。
+    一键生成所有预测分析相关 Sheet：预测展示、预测展开、预测展开（横向）、订单与预测转置。
     """
     def build_forecast_long_table(df: pd.DataFrame) -> pd.DataFrame:
         records = []
@@ -18,13 +18,17 @@ def write_all_forecast_sheets(wb, df_main: pd.DataFrame):
                 if not match:
                     continue
                 forecast_month, gen_month = match.groups()
+                try:
+                    forecast_val = pd.to_numeric(row[col], errors='coerce')
+                except Exception:
+                    forecast_val = None
                 records.append({
-                    "品名": row["品名"],
+                    "品名": row.get("品名", ""),
                     "预测月份": forecast_month,
                     "生成月份": gen_month,
-                    "预测值": row[col],
-                    "订单量": row.get(f"{forecast_month}-订单", 0),
-                    "出货量": row.get(f"{forecast_month}-出货", 0),
+                    "预测值": forecast_val,
+                    "订单量": pd.to_numeric(row.get(f"{forecast_month}-订单", 0), errors='coerce'),
+                    "出货量": pd.to_numeric(row.get(f"{forecast_month}-出货", 0), errors='coerce'),
                 })
         return pd.DataFrame(records)
 
@@ -62,10 +66,45 @@ def write_all_forecast_sheets(wb, df_main: pd.DataFrame):
             max_len = max(len(str(cell.value)) if cell.value else 0 for cell in col_cells)
             ws.column_dimensions[get_column_letter(i)].width = max_len + 4
 
+    def write_order_forecast_by_month_block(wb, df: pd.DataFrame, sheet_name="订单预测分块"):
+        """
+        将“预测分析”表中每个月份块（如 2025-07生成）提取出来，转换为：
+        品名 | 月份 | 预测值 | 订单量
+        """
+        forecast_cols = [col for col in df.columns if re.match(r"\d{4}-\d{2}的预测（\d{4}-\d{2}生成）", str(col))]
+        order_cols = [col for col in df.columns if re.match(r"\d{4}-\d{2}-订单", str(col))]
+
+        records = []
+        for _, row in df.iterrows():
+            for fcol in forecast_cols:
+                match = re.match(r"(\d{4}-\d{2})的预测（(\d{4}-\d{2})生成）", fcol)
+                if not match:
+                    continue
+                month, gen = match.groups()
+                record = {
+                    "品名": row["品名"],
+                    "月份": month,
+                    "生成月份": gen,
+                    "预测值": row.get(fcol, 0),
+                    "订单量": row.get(f"{month}-订单", 0),
+                }
+                records.append(record)
+
+        df_final = pd.DataFrame(records)
+        ws = wb.create_sheet(title=sheet_name)
+        for r in dataframe_to_rows(df_final, index=False, header=True):
+            ws.append(r)
+        for cell in ws[1]:
+            cell.alignment = Alignment(horizontal="center", vertical="center")
+            cell.font = Font(bold=True)
+        for i, col_cells in enumerate(ws.columns, 1):
+            max_len = max(len(str(cell.value)) if cell.value else 0 for cell in col_cells)
+            ws.column_dimensions[get_column_letter(i)].width = max_len + 4
+
     # ✅ 构建长表
     df_out = build_forecast_long_table(df_main)
 
-    # ✅ 写入三个 Sheet
+    # ✅ 写入多个 Sheet
     from forecast_utils import merge_monthly_group_headers, merge_and_color_monthly_group_headers
     ws = wb.create_sheet(title="预测展示")
     for r in dataframe_to_rows(df_main, index=False, header=True):
@@ -75,3 +114,4 @@ def write_all_forecast_sheets(wb, df_main: pd.DataFrame):
 
     write_forecast_expanded_sheet(wb, df_out)
     write_forecast_expanded_wide_sheet(wb, df_out)
+    write_order_forecast_by_month_block(wb, df_main)
