@@ -140,7 +140,7 @@ class PivotProcessor:
                         pass
                 ws.column_dimensions[get_column_letter(col_idx)].width = max_length + 10
 
-                        from openpyxl.utils import get_column_letter
+            from openpyxl.utils import get_column_letter
 
             # ✅ 构建“月度展开”sheet（预测集中 + 列宽调整）
             monthly_rows = []
