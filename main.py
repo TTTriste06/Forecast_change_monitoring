@@ -3,21 +3,14 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import re
 from datetime import datetime
+from ui import get_uploaded_files
+from pivot_processor import PivotProcessor
+from github_utils import load_file_with_github_fallback
 
-st.set_page_config(page_title="预测分析工具", layout="wide")
+st.set_page_config(page_title="预测分析主计划工具", layout="wide")
 
 # 页面选择
 page = st.sidebar.selectbox("📂 请选择页面", ["📊 主计划生成", "📈 图表查看"])
-
-# 模拟预测数据（你可换成真实处理流程）
-def generate_mock_df():
-    data = {
-        "品名": ["ABC"],
-        "2025-08-订单": [100], "2025-08-出货": [90], "2025-08的预测（2025-07生成）": [95],
-        "2025-09-订单": [120], "2025-09-出货": [110], "2025-09的预测（2025-07生成）": [130],
-        "2025-10-订单": [85], "2025-10-出货": [80], "2025-10的预测（2025-07生成）": [92],
-    }
-    return pd.DataFrame(data)
 
 # 图表绘制函数
 def plot_combined_chart(df, product_name):
@@ -59,14 +52,32 @@ def plot_combined_chart(df, product_name):
     ax1.grid(True)
     st.pyplot(fig)
 
+
 # 页面一：主计划生成
 if page == "📊 主计划生成":
     st.title("📊 主计划生成页面")
-    if st.button("生成模拟数据"):
-        df_result = generate_mock_df()
+    forecast_files, order_file, sales_file, mapping_file, start = get_uploaded_files()
+
+    if start:    
+        order_df = load_file_with_github_fallback("order", order_file, sheet_name="Sheet")
+        sales_df = load_file_with_github_fallback("sales", sales_file, sheet_name="原表")
+        mapping_df = load_file_with_github_fallback("mapping", mapping_file, sheet_name=0)
+
+        processor = PivotProcessor()
+        df_result, excel_output = processor.process(forecast_files, order_df, sales_df, mapping_df)
+
         st.session_state["df_result"] = df_result
-        st.success("✅ 模拟数据已生成")
-        st.dataframe(df_result)
+        st.session_state["last_updated"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        st.success("✅ 主计划生成成功！")
+        st.dataframe(df_result, use_container_width=True)
+
+        st.download_button(
+            label="📥 下载主计划 Excel 文件",
+            data=excel_output.getvalue(),
+            file_name=f"预测分析主计划_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
 
 # 页面二：图表查看
 elif page == "📈 图表查看":
@@ -75,6 +86,7 @@ elif page == "📈 图表查看":
         st.warning("请先在“主计划生成”页面生成数据")
     else:
         df_result = st.session_state["df_result"]
+        st.caption(f"🕒 数据更新时间：{st.session_state.get('last_updated', '未知')}")
         product_list = df_result["品名"].dropna().unique().tolist()
         selected = st.selectbox("选择品名", product_list)
         plot_combined_chart(df_result, selected)
